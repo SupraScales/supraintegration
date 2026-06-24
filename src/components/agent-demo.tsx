@@ -7,20 +7,22 @@ const steps = [
   {
     label: "Intake",
     icon: "📥",
-    detail: "New lead submitted",
-    color: "from-accent to-accent/60",
+    detail: "New lead captured",
+  },
+  {
+    label: "Qualify",
+    icon: "🔀",
+    detail: "AI scored → Tier 1",
   },
   {
     label: "Route",
-    icon: "🔀",
-    detail: "Qualified → Sales",
-    color: "from-accent/80 to-accent-2/80",
+    icon: "⚡",
+    detail: "Assigned to Sales",
   },
   {
     label: "Done",
     icon: "✓",
-    detail: "CRM updated, Slack notified",
-    color: "from-accent-2 to-accent-2/60",
+    detail: "CRM + Slack notified",
   },
 ];
 
@@ -32,17 +34,20 @@ export function AgentDemo() {
     if (reduced) return;
     const interval = setInterval(() => {
       setActive((prev) => (prev + 1) % steps.length);
-    }, 2400);
+    }, 2200);
     return () => clearInterval(interval);
   }, [reduced]);
 
   return (
-    <div className="glass mx-auto w-full max-w-sm rounded-2xl p-5">
-      <div className="mb-3 flex items-center gap-2 text-xs text-muted">
-        <span className="inline-block h-2 w-2 rounded-full bg-accent-2 shadow-[0_0_6px_rgba(0,212,184,0.5)]" />
-        AI Agent — Live
+    <div className="glass gold-glow mx-auto w-full max-w-sm rounded-2xl p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-xs text-muted">
+          <span className="inline-block h-2 w-2 rounded-full bg-gold shadow-[0_0_8px_rgba(201,168,76,0.6)]" />
+          AI Agent — Live
+        </div>
+        <div className="font-mono text-[10px] text-gold/40">supra.agent.v1</div>
       </div>
-      <div className="flex flex-col gap-2.5">
+      <div className="flex flex-col gap-2">
         {steps.map((step, i) => (
           <motion.div
             key={step.label}
@@ -50,38 +55,43 @@ export function AgentDemo() {
               reduced
                 ? {}
                 : {
-                    opacity: i <= active ? 1 : 0.3,
+                    opacity: i <= active ? 1 : 0.25,
                     scale: i === active ? 1.02 : 1,
                   }
             }
             transition={{ duration: 0.4, ease: "easeOut" }}
-            className="flex items-center gap-3 rounded-xl bg-white/[0.04] px-4 py-3"
+            className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-colors duration-300 ${
+              i === active
+                ? "bg-gold/[0.08] border border-gold/20"
+                : "bg-white/[0.02] border border-transparent"
+            }`}
           >
-            <span className="text-lg">{step.icon}</span>
+            <span className="text-base">{step.icon}</span>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium text-fg">{step.label}</div>
               <div className="truncate text-xs text-muted">{step.detail}</div>
             </div>
-            {i <= active && !reduced && (
+            {i < active && (
+              <span className="text-xs text-gold">✓</span>
+            )}
+            {i === active && !reduced && (
               <motion.div
                 initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className={`h-2 w-2 rounded-full bg-gradient-to-r ${step.color}`}
-              />
-            )}
-            {i <= active && reduced && (
-              <div
-                className={`h-2 w-2 rounded-full bg-gradient-to-r ${step.color}`}
+                animate={{ scale: [1, 1.3, 1] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+                className="h-2 w-2 rounded-full bg-gold shadow-[0_0_6px_rgba(201,168,76,0.5)]"
               />
             )}
           </motion.div>
         ))}
       </div>
-      <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/[0.06]">
+      <div className="mt-4 h-1 overflow-hidden rounded-full bg-white/[0.04]">
         <motion.div
-          animate={reduced ? {} : { width: `${((active + 1) / steps.length) * 100}%` }}
+          animate={
+            reduced ? {} : { width: `${((active + 1) / steps.length) * 100}%` }
+          }
           transition={{ duration: 0.5, ease: "easeOut" }}
-          className="h-full rounded-full bg-gradient-to-r from-accent to-accent-2"
+          className="h-full rounded-full bg-gradient-to-r from-gold-dark via-gold to-gold-light"
           style={reduced ? { width: "100%" } : undefined}
         />
       </div>

@@ -7,6 +7,31 @@ export function FadeIn({
   children,
   delay = 0,
   className,
+  y = 32,
+}: {
+  children: ReactNode;
+  delay?: number;
+  className?: string;
+  y?: number;
+}) {
+  const reduced = useReducedMotion();
+  return (
+    <motion.div
+      initial={reduced ? false : { opacity: 0, y }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.7, delay, ease: [0.16, 1, 0.3, 1] }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+export function FadeInScale({
+  children,
+  delay = 0,
+  className,
 }: {
   children: ReactNode;
   delay?: number;
@@ -15,10 +40,10 @@ export function FadeIn({
   const reduced = useReducedMotion();
   return (
     <motion.div
-      initial={reduced ? false : { opacity: 0, y: 24 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-60px" }}
-      transition={{ duration: 0.5, delay, ease: [0.21, 0.47, 0.32, 0.98] }}
+      initial={reduced ? false : { opacity: 0, scale: 0.95 }}
+      whileInView={{ opacity: 1, scale: 1 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.8, delay, ease: [0.16, 1, 0.3, 1] }}
       className={className}
     >
       {children}
@@ -41,7 +66,7 @@ export function FadeInStagger({
       viewport={{ once: true, margin: "-60px" }}
       variants={{
         visible: {
-          transition: { staggerChildren: reduced ? 0 : 0.08 },
+          transition: { staggerChildren: reduced ? 0 : 0.1 },
         },
       }}
       className={className}
@@ -65,17 +90,40 @@ export function FadeInItem({
         reduced
           ? { hidden: {}, visible: {} }
           : {
-              hidden: { opacity: 0, y: 20 },
+              hidden: { opacity: 0, y: 24 },
               visible: {
                 opacity: 1,
                 y: 0,
                 transition: {
-                  duration: 0.45,
-                  ease: [0.21, 0.47, 0.32, 0.98],
+                  duration: 0.6,
+                  ease: [0.16, 1, 0.3, 1],
                 },
               },
             }
       }
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+export function SlideInLeft({
+  children,
+  delay = 0,
+  className,
+}: {
+  children: ReactNode;
+  delay?: number;
+  className?: string;
+}) {
+  const reduced = useReducedMotion();
+  return (
+    <motion.div
+      initial={reduced ? false : { opacity: 0, x: -40 }}
+      whileInView={{ opacity: 1, x: 0 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.7, delay, ease: [0.16, 1, 0.3, 1] }}
       className={className}
     >
       {children}

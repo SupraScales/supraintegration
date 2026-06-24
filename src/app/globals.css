@@ -1,15 +1,17 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-bg: #0a0a0f;
-  --color-bg-soft: #12121a;
-  --color-fg: #f4f4f7;
-  --color-muted: #9a9aae;
-  --color-accent: #6d7cff;
-  --color-accent-2: #00d4b8;
-  --color-border: #23232f;
-  --color-glass: rgba(255, 255, 255, 0.06);
-  --color-glass-border: rgba(255, 255, 255, 0.08);
+  --color-bg: #06050b;
+  --color-bg-soft: #0c0b14;
+  --color-bg-card: #110f1a;
+  --color-fg: #f5f0e5;
+  --color-muted: #8a8478;
+  --color-gold: #c9a84c;
+  --color-gold-light: #e8d48b;
+  --color-gold-dark: #8b6914;
+  --color-border: #1c1a24;
+  --color-glass: rgba(201, 168, 76, 0.04);
+  --color-glass-border: rgba(201, 168, 76, 0.1);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-display: var(--font-space-grotesk);
@@ -26,13 +28,48 @@ body {
 }
 
 ::selection {
-  background: var(--color-accent);
-  color: #fff;
+  background: var(--color-gold);
+  color: #000;
 }
 
 .glass {
   background: var(--color-glass);
   border: 1px solid var(--color-glass-border);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.gold-gradient {
+  background: linear-gradient(135deg, var(--color-gold-dark), var(--color-gold), var(--color-gold-light), var(--color-gold));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gold-glow {
+  box-shadow: 0 0 40px rgba(201, 168, 76, 0.15), 0 0 80px rgba(201, 168, 76, 0.05);
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(201, 168, 76, 0.06) 25%,
+    rgba(232, 212, 139, 0.1) 50%,
+    rgba(201, 168, 76, 0.06) 75%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
+  }
 }

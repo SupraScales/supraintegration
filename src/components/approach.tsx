@@ -1,6 +1,6 @@
 "use client";
 
-import { FadeIn, FadeInStagger, FadeInItem } from "./motion";
+import { FadeIn, FadeInStagger, FadeInItem, motion, useReducedMotion } from "./motion";
 
 const steps = [
   {
@@ -23,31 +23,52 @@ const steps = [
   },
 ];
 
+function GoldLine() {
+  const reduced = useReducedMotion();
+  return (
+    <div
+      aria-hidden
+      className="absolute left-0 right-0 top-16 hidden h-px md:block"
+    >
+      <motion.div
+        initial={reduced ? false : { scaleX: 0 }}
+        whileInView={{ scaleX: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+        className="h-full origin-left bg-gradient-to-r from-gold/40 via-gold/20 to-transparent"
+      />
+    </div>
+  );
+}
+
 export function Approach() {
   return (
-    <section id="approach" className="border-t border-border px-6 py-24 md:py-32">
+    <section id="approach" className="relative border-t border-border px-6 py-28 md:py-36">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold/20 to-transparent"
+      />
       <div className="mx-auto max-w-6xl">
         <FadeIn className="mx-auto mb-16 max-w-xl text-center">
-          <h2 className="font-display text-[clamp(1.8rem,3.5vw,2.8rem)] font-bold tracking-tight">
-            How we work
+          <p className="mb-4 text-xs uppercase tracking-[0.2em] text-gold">
+            Our process
+          </p>
+          <h2 className="font-display text-[clamp(2rem,4vw,3rem)] font-bold tracking-tight">
+            From concept to{" "}
+            <span className="gold-gradient">compound returns</span>
           </h2>
-          <p className="mt-4 text-lg text-muted">
+          <p className="mt-5 text-lg text-muted">
             Three tiers, one promise: every engagement ends with something live
             and working.
           </p>
         </FadeIn>
 
         <FadeInStagger className="relative grid gap-6 md:grid-cols-3">
-          {/* Connecting line behind the cards */}
-          <div
-            aria-hidden
-            className="absolute left-0 right-0 top-12 hidden h-px bg-gradient-to-r from-transparent via-border to-transparent md:block"
-          />
-
+          <GoldLine />
           {steps.map((s) => (
             <FadeInItem key={s.title}>
-              <div className="relative rounded-2xl border border-glass-border bg-bg-soft p-8 transition-all duration-300 hover:-translate-y-1 hover:border-accent/30">
-                <div className="mb-5 font-display text-3xl font-bold text-accent/40">
+              <div className="group relative rounded-2xl border border-border bg-bg-card p-8 transition-all duration-500 hover:-translate-y-1.5 hover:border-gold/20 hover:shadow-[0_12px_40px_rgba(201,168,76,0.06)]">
+                <div className="mb-6 font-display text-4xl font-bold text-gold/20 transition-colors duration-500 group-hover:text-gold/40">
                   {s.number}
                 </div>
                 <h3 className="mb-3 font-display text-xl font-semibold tracking-tight">
