@@ -43,16 +43,13 @@ function GoldLine() {
 
 export function Approach() {
   return (
-    <section id="approach" className="relative border-t border-border px-6 py-16 md:py-20">
+    <section id="approach" className="relative border-t border-border px-6 py-10 md:py-14">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold/20 to-transparent"
       />
       <div className="mx-auto max-w-6xl">
-        <FadeIn className="mx-auto mb-12 max-w-xl text-center">
-          <p className="mb-4 text-xs uppercase tracking-[0.2em] text-gold">
-            Our process
-          </p>
+        <FadeIn className="mx-auto mb-8 max-w-xl text-center">
           <h2 className="font-display text-[clamp(2rem,4vw,3rem)] font-bold tracking-tight">
             From concept to{" "}
             <span className="gold-gradient">compound returns</span>

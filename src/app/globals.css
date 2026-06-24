@@ -34,20 +34,11 @@ body {
   color: #000;
 }
 
-/* Force GPU compositing for all animated elements */
-*,
-*::before,
-*::after {
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-}
-
 .glass {
   background: var(--color-glass);
   border: 1px solid var(--color-glass-border);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  will-change: transform;
 }
 
 .gold-gradient {
@@ -82,11 +73,5 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .shimmer {
     animation: none;
-  }
-  *,
-  *::before,
-  *::after {
-    backface-visibility: visible;
-    -webkit-backface-visibility: visible;
   }
 }

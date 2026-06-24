@@ -5,7 +5,7 @@ import { WorkflowGraphic } from "./workflow-graphic";
 
 export function Hero() {
   return (
-    <section className="relative overflow-hidden px-6 pb-16 pt-24 md:pb-24 md:pt-32">
+    <section className="relative overflow-hidden px-6 pb-10 pt-20 md:pb-14 md:pt-24">
       {/* Gold radial glow */}
       <div
         aria-hidden

@@ -6,7 +6,7 @@ export function CTA() {
   return (
     <section
       id="contact"
-      className="relative overflow-hidden border-t border-border px-6 py-20 md:py-24"
+      className="relative overflow-hidden border-t border-border px-6 py-12 md:py-16"
     >
       <div
         aria-hidden
