@@ -13,18 +13,18 @@ export function Header() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-bg/70 backdrop-blur-xl">
-      <nav className="mx-auto flex h-[68px] max-w-[1080px] items-center justify-between px-6">
-        <Link href="/" className="text-lg font-bold tracking-tight">
+    <header className="sticky top-0 z-50 border-b border-glass-border bg-bg/60 backdrop-blur-2xl">
+      <nav className="mx-auto flex h-[68px] max-w-6xl items-center justify-between px-6">
+        <Link href="/" className="font-display text-lg font-bold tracking-tight">
           Supra<span className="text-accent">Integration</span>
         </Link>
 
-        <div className="hidden items-center gap-7 text-[0.95rem] text-muted md:flex">
+        <div className="hidden items-center gap-8 text-sm text-muted md:flex">
           {links.map((l) => (
             <a
               key={l.href}
               href={l.href}
-              className="transition-colors hover:text-fg"
+              className="transition-colors duration-200 hover:text-fg"
             >
               {l.label}
             </a>
@@ -33,7 +33,7 @@ export function Header() {
 
         <a
           href="#contact"
-          className="hidden rounded-[10px] bg-gradient-to-br from-accent to-accent-2 px-5 py-2.5 text-[0.95rem] font-semibold text-white transition-all hover:-translate-y-0.5 hover:opacity-90 md:inline-block"
+          className="hidden rounded-full bg-gradient-to-r from-accent to-accent-2 px-5 py-2 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_4px_20px_rgba(109,124,255,0.4)] md:inline-block"
         >
           Get started
         </a>
@@ -44,19 +44,19 @@ export function Header() {
           aria-label="Toggle menu"
         >
           <span
-            className={`block h-0.5 w-6 bg-fg transition-transform ${open ? "translate-y-2 rotate-45" : ""}`}
+            className={`block h-0.5 w-6 bg-fg transition-transform duration-200 ${open ? "translate-y-2 rotate-45" : ""}`}
           />
           <span
-            className={`block h-0.5 w-6 bg-fg transition-opacity ${open ? "opacity-0" : ""}`}
+            className={`block h-0.5 w-6 bg-fg transition-opacity duration-200 ${open ? "opacity-0" : ""}`}
           />
           <span
-            className={`block h-0.5 w-6 bg-fg transition-transform ${open ? "-translate-y-2 -rotate-45" : ""}`}
+            className={`block h-0.5 w-6 bg-fg transition-transform duration-200 ${open ? "-translate-y-2 -rotate-45" : ""}`}
           />
         </button>
       </nav>
 
       {open && (
-        <div className="border-t border-border bg-bg px-6 pb-6 pt-4 md:hidden">
+        <div className="border-t border-glass-border bg-bg/95 px-6 pb-6 pt-4 backdrop-blur-2xl md:hidden">
           {links.map((l) => (
             <a
               key={l.href}
@@ -70,7 +70,7 @@ export function Header() {
           <a
             href="#contact"
             onClick={() => setOpen(false)}
-            className="mt-2 inline-block rounded-[10px] bg-gradient-to-br from-accent to-accent-2 px-5 py-2.5 text-[0.95rem] font-semibold text-white"
+            className="mt-2 inline-block rounded-full bg-gradient-to-r from-accent to-accent-2 px-5 py-2 text-sm font-semibold text-white"
           >
             Get started
           </a>
