@@ -6,7 +6,7 @@ export function CTA() {
   return (
     <section
       id="contact"
-      className="relative overflow-hidden border-t border-border px-6 py-32 md:py-40"
+      className="relative overflow-hidden border-t border-border px-6 py-20 md:py-24"
     >
       <div
         aria-hidden
@@ -37,7 +37,7 @@ export function CTA() {
           </p>
           <a
             href="mailto:hello@supraintegration.ai"
-            className="group mt-12 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-gold-dark via-gold to-gold-light px-10 py-4 text-base font-semibold text-bg transition-all duration-300 hover:shadow-[0_8px_40px_rgba(201,168,76,0.35)]"
+            className="group mt-10 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-gold-dark via-gold to-gold-light px-10 py-4 text-base font-semibold text-bg transition-all duration-300 hover:shadow-[0_8px_40px_rgba(201,168,76,0.35)]"
           >
             hello@supraintegration.ai
             <span className="transition-transform duration-300 group-hover:translate-x-1">

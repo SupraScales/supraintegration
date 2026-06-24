@@ -43,13 +43,13 @@ function GoldLine() {
 
 export function Approach() {
   return (
-    <section id="approach" className="relative border-t border-border px-6 py-28 md:py-36">
+    <section id="approach" className="relative border-t border-border px-6 py-16 md:py-20">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold/20 to-transparent"
       />
       <div className="mx-auto max-w-6xl">
-        <FadeIn className="mx-auto mb-16 max-w-xl text-center">
+        <FadeIn className="mx-auto mb-12 max-w-xl text-center">
           <p className="mb-4 text-xs uppercase tracking-[0.2em] text-gold">
             Our process
           </p>
@@ -67,8 +67,8 @@ export function Approach() {
           <GoldLine />
           {steps.map((s) => (
             <FadeInItem key={s.title}>
-              <div className="group relative rounded-2xl border border-border bg-bg-card p-8 transition-all duration-500 hover:-translate-y-1.5 hover:border-gold/20 hover:shadow-[0_12px_40px_rgba(201,168,76,0.06)]">
-                <div className="mb-6 font-display text-4xl font-bold text-gold/20 transition-colors duration-500 group-hover:text-gold/40">
+              <div className="group relative rounded-2xl border border-border bg-bg-card p-8 transition-all duration-700 ease-out hover:-translate-y-1 hover:border-gold/20 hover:shadow-[0_16px_48px_rgba(201,168,76,0.08)]">
+                <div className="mb-6 font-display text-4xl font-bold text-gold/20 transition-colors duration-700 ease-out group-hover:text-gold/40">
                   {s.number}
                 </div>
                 <h3 className="mb-3 font-display text-xl font-semibold tracking-tight">

@@ -25,6 +25,8 @@ body {
   background: var(--color-bg);
   color: var(--color-fg);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 ::selection {
@@ -32,11 +34,20 @@ body {
   color: #000;
 }
 
+/* Force GPU compositing for all animated elements */
+*,
+*::before,
+*::after {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
 .glass {
   background: var(--color-glass);
   border: 1px solid var(--color-glass-border);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+  will-change: transform;
 }
 
 .gold-gradient {
@@ -59,17 +70,23 @@ body {
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(201, 168, 76, 0.06) 25%,
-    rgba(232, 212, 139, 0.1) 50%,
-    rgba(201, 168, 76, 0.06) 75%,
+    rgba(201, 168, 76, 0.04) 30%,
+    rgba(232, 212, 139, 0.08) 50%,
+    rgba(201, 168, 76, 0.04) 70%,
     transparent 100%
   );
   background-size: 200% 100%;
-  animation: shimmer 8s ease-in-out infinite;
+  animation: shimmer 10s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .shimmer {
     animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    backface-visibility: visible;
+    -webkit-backface-visibility: visible;
   }
 }

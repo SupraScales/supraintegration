@@ -1,10 +1,18 @@
 "use client";
 
 import { FadeIn, FadeInStagger, FadeInItem } from "./motion";
+import { Workflow, Bot, Plug, BarChart3, Wrench, GraduationCap } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
-const services = [
+const services: {
+  Icon: LucideIcon;
+  title: string;
+  description: string;
+  span: string;
+  featured: boolean;
+}[] = [
   {
-    icon: "⚙️",
+    Icon: Workflow,
     title: "Workflow Automation",
     description:
       "Connect your apps and let AI handle the repetitive work — intake, routing, data entry, and follow-up.",
@@ -12,7 +20,7 @@ const services = [
     featured: true,
   },
   {
-    icon: "🤖",
+    Icon: Bot,
     title: "Custom AI Agents",
     description:
       "Purpose-built agents that research, draft, and act across your systems with the right guardrails.",
@@ -20,7 +28,7 @@ const services = [
     featured: false,
   },
   {
-    icon: "🔌",
+    Icon: Plug,
     title: "Tool Integration",
     description:
       "Securely wire AI into your CRM, inbox, docs, and data so it has real context to work from.",
@@ -28,7 +36,7 @@ const services = [
     featured: false,
   },
   {
-    icon: "📊",
+    Icon: BarChart3,
     title: "Data & Insights",
     description:
       "Turn scattered business data into dashboards and answers your team can actually use.",
@@ -36,7 +44,7 @@ const services = [
     featured: true,
   },
   {
-    icon: "🛠️",
+    Icon: Wrench,
     title: "Implementation",
     description:
       "From pilot to production — we handle setup, testing, and rollout so adoption actually sticks.",
@@ -44,7 +52,7 @@ const services = [
     featured: false,
   },
   {
-    icon: "🎓",
+    Icon: GraduationCap,
     title: "Enablement",
     description:
       "We train your team to run and extend what we build, so you're never dependent on us.",
@@ -55,13 +63,13 @@ const services = [
 
 export function Services() {
   return (
-    <section id="services" className="relative border-t border-border px-6 py-28 md:py-36">
+    <section id="services" className="relative border-t border-border px-6 py-16 md:py-20">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold/20 to-transparent"
       />
       <div className="mx-auto max-w-6xl">
-        <FadeIn className="mx-auto mb-16 max-w-xl text-center">
+        <FadeIn className="mx-auto mb-12 max-w-xl text-center">
           <p className="mb-4 text-xs uppercase tracking-[0.2em] text-gold">
             What we build
           </p>
@@ -79,12 +87,12 @@ export function Services() {
           {services.map((s) => (
             <FadeInItem key={s.title} className={`group ${s.span}`}>
               <div
-                className={`glass h-full rounded-2xl p-8 transition-all duration-500 hover:-translate-y-1.5 hover:border-gold/25 hover:shadow-[0_12px_40px_rgba(201,168,76,0.08)] ${
+                className={`glass h-full rounded-2xl p-8 transition-all duration-700 ease-out hover:-translate-y-1 hover:border-gold/25 hover:shadow-[0_16px_48px_rgba(201,168,76,0.1)] ${
                   s.featured ? "shimmer" : ""
                 }`}
               >
-                <div className="mb-5 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gold/[0.08] text-xl">
-                  {s.icon}
+                <div className="mb-5 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gold/[0.08]">
+                  <s.Icon size={28} strokeWidth={1.5} className="text-gold" />
                 </div>
                 <h3 className="mb-3 font-display text-lg font-semibold tracking-tight text-fg">
                   {s.title}
