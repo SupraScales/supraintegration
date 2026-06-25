@@ -1,8 +1,6 @@
 "use client";
 
-import { FadeIn } from "./motion";
-
-const placeholders = [
+const tools = [
   "OpenAI",
   "Slack",
   "HubSpot",
@@ -13,20 +11,26 @@ const placeholders = [
 
 export function TrustStrip() {
   return (
-    <section className="border-t border-border/60 px-6 py-8">
-      <div className="mx-auto max-w-6xl">
-        <FadeIn>
-          <div className="edge-fade-x flex flex-wrap items-center justify-center gap-x-14 gap-y-5">
-            {placeholders.map((name) => (
-              <span
-                key={name}
-                className="cursor-default font-display text-lg font-medium text-fg/50 transition-all duration-500 hover:text-gold"
-              >
-                {name}
-              </span>
-            ))}
-          </div>
-        </FadeIn>
+    <section className="border-t border-border/60 py-8 overflow-hidden">
+      <div
+        className="edge-fade-x"
+        style={{
+          maskImage:
+            "linear-gradient(to right, transparent, black 10%, black 90%, transparent)",
+          WebkitMaskImage:
+            "linear-gradient(to right, transparent, black 10%, black 90%, transparent)",
+        }}
+      >
+        <div className="flex animate-marquee whitespace-nowrap">
+          {[...tools, ...tools, ...tools].map((name, i) => (
+            <span
+              key={`${name}-${i}`}
+              className="mx-10 inline-block font-display text-lg font-medium text-fg/40 md:mx-14"
+            >
+              {name}
+            </span>
+          ))}
+        </div>
       </div>
     </section>
   );

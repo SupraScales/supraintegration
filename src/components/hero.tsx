@@ -2,11 +2,14 @@
 
 import { FadeIn, FadeInScale } from "./motion";
 import { WorkflowGraphic } from "./workflow-graphic";
+import { ParticleField, AccentLines } from "@/components/ui/particle-field";
 
 export function Hero() {
   return (
     <section className="relative overflow-hidden px-6 pb-10 pt-20 md:pb-14 md:pt-24">
-      {/* Gold radial glow */}
+      <AccentLines />
+      <ParticleField />
+
       <div
         aria-hidden
         className="pointer-events-none absolute left-1/2 top-1/4 -z-10 h-[700px] w-[1000px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-15 blur-[140px]"
@@ -16,7 +19,7 @@ export function Hero() {
         }}
       />
 
-      <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1.1fr_1fr] lg:gap-8">
+      <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1.1fr_1fr] lg:gap-8">
         <FadeIn>
           <div className="max-w-2xl">
             <span className="mb-7 inline-flex items-center gap-2 rounded-full border border-gold/20 bg-gold/[0.06] px-4 py-1.5 text-xs uppercase tracking-[0.16em] text-gold backdrop-blur-sm">
@@ -25,7 +28,7 @@ export function Hero() {
             </span>
             <h1 className="font-display text-[clamp(2.8rem,6.5vw,5rem)] font-semibold leading-[0.95] tracking-[-0.04em]">
               AI systems that{" "}
-              <span className="gold-gradient">
+              <span className="gold-gradient hero-gold-reveal">
                 work where you work
               </span>
             </h1>
