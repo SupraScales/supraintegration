@@ -7,7 +7,7 @@ const steps = [
     number: "01",
     title: "Discover",
     description:
-      "We map your workflows and find the highest-leverage places AI can save time or money.",
+      "We map your workflows and find the places where AI saves real time or money.",
   },
   {
     number: "02",
@@ -43,20 +43,15 @@ function GoldLine() {
 
 export function Approach() {
   return (
-    <section id="approach" className="relative border-t border-border px-6 py-10 md:py-14">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold/20 to-transparent"
-      />
+    <section id="approach" className="relative border-t border-border/60 px-6 py-10 md:py-14">
       <div className="mx-auto max-w-6xl">
         <FadeIn className="mx-auto mb-8 max-w-xl text-center">
-          <h2 className="font-display text-[clamp(2rem,4vw,3rem)] font-bold tracking-tight">
+          <h2 className="font-display text-[clamp(2rem,4vw,3rem)] font-bold tracking-[-0.02em]">
             From concept to{" "}
             <span className="gold-gradient">compound returns</span>
           </h2>
           <p className="mt-5 text-lg text-muted">
-            Three tiers, one promise: every engagement ends with something live
-            and working.
+            Every engagement ends with something live and working.
           </p>
         </FadeIn>
 
@@ -64,7 +59,7 @@ export function Approach() {
           <GoldLine />
           {steps.map((s) => (
             <FadeInItem key={s.title}>
-              <div className="group relative rounded-2xl border border-border bg-bg-card p-8 transition-all duration-700 ease-out hover:-translate-y-1 hover:border-gold/20 hover:shadow-[0_16px_48px_rgba(201,168,76,0.08)]">
+              <div className="glass group relative cursor-pointer rounded-2xl p-8 transition-all duration-500 ease-out hover:-translate-y-0.5 hover:border-gold/20 hover:shadow-[0_20px_60px_rgba(201,168,76,0.06)]">
                 <div className="mb-6 font-display text-4xl font-bold text-gold/20 transition-colors duration-700 ease-out group-hover:text-gold/40">
                   {s.number}
                 </div>

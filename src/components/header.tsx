@@ -33,8 +33,8 @@ export function Header() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-gold/10 bg-bg/70 backdrop-blur-2xl">
-      <nav className="mx-auto flex h-[72px] max-w-6xl items-center justify-between px-6">
+    <header className="sticky top-0 z-50 border-b border-gold/[0.06] bg-bg/60 backdrop-blur-2xl backdrop-saturate-150">
+      <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
         <Link href="/" className="flex items-center gap-3">
           <Logo />
           {/* Fallback text logo (hidden when image loads) */}
@@ -49,7 +49,7 @@ export function Header() {
             <a
               key={l.href}
               href={l.href}
-              className="transition-colors duration-300 hover:text-gold"
+              className="cursor-pointer transition-colors duration-300 hover:text-gold"
             >
               {l.label}
             </a>
@@ -58,7 +58,7 @@ export function Header() {
 
         <a
           href="#contact"
-          className="hidden rounded-full border border-gold/30 bg-gold/[0.06] px-6 py-2 text-sm font-medium text-gold transition-all duration-300 hover:border-gold/60 hover:bg-gold/15 hover:shadow-[0_0_20px_rgba(201,168,76,0.15)] md:inline-block"
+          className="hidden cursor-pointer rounded-full border border-gold/20 bg-gold/[0.04] px-6 py-2 text-sm font-medium text-gold transition-all duration-500 hover:border-gold/40 hover:bg-gold/10 md:inline-block"
         >
           Get started
         </a>

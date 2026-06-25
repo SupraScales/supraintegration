@@ -6,12 +6,8 @@ export function CTA() {
   return (
     <section
       id="contact"
-      className="relative overflow-hidden border-t border-border px-6 py-12 md:py-16"
+      className="relative overflow-hidden border-t border-border/60 px-6 py-12 md:py-16"
     >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold/20 to-transparent"
-      />
       {/* Deep gold glow */}
       <div
         aria-hidden
@@ -27,17 +23,16 @@ export function CTA() {
           <p className="mb-4 text-xs uppercase tracking-[0.2em] text-gold">
             Ready to start?
           </p>
-          <h2 className="font-display text-[clamp(2.2rem,5vw,3.6rem)] font-bold tracking-tight">
+          <h2 className="font-display text-[clamp(2.2rem,5vw,3.6rem)] font-bold tracking-[-0.02em]">
             Let&apos;s put AI to work{" "}
             <span className="gold-gradient">in your business</span>
           </h2>
           <p className="mx-auto mt-6 max-w-md text-lg text-muted">
-            Tell us what&apos;s slowing your team down. We&apos;ll show you
-            what&apos;s possible.
+            Tell us what&apos;s slowing your team down.
           </p>
           <a
             href="mailto:hello@supraintegration.ai"
-            className="group mt-10 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-gold-dark via-gold to-gold-light px-10 py-4 text-base font-semibold text-bg transition-all duration-300 hover:shadow-[0_8px_40px_rgba(201,168,76,0.35)]"
+            className="group mt-10 inline-flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-gold-dark via-gold to-gold-light px-10 py-4 text-base font-semibold text-bg transition-all duration-500 hover:shadow-[0_12px_48px_rgba(201,168,76,0.3)]"
           >
             hello@supraintegration.ai
             <span className="transition-transform duration-300 group-hover:translate-x-1">
