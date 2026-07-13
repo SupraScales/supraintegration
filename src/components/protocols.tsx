@@ -25,30 +25,33 @@ const protocols = [
 
 export function Protocols() {
   return (
-    <section id="protocols" className="protocols-section">
-      <div className="protocols-heading">
-        <p className="section-kicker">The operating layer</p>
-        <h2>SOPs simple enough to work on a <span>busy Tuesday.</span></h2>
+    <section id="protocols" className="space-protocols">
+      <div className="space-section-heading">
+        <p className="space-eyebrow"><span aria-hidden />Mission protocols</p>
+        <h2>The system stays useful when the week gets <span>messy.</span></h2>
         <p>
-          The procedure has to survive missed context, new hires, and a full schedule.
-          We make each handoff explicit and easy to inspect.
+          Every handoff gets a rule, an owner, and a visible signal. New demand can
+          move through the business without pulling the founder into every decision.
         </p>
       </div>
 
-      <FadeIn>
-        <div className="protocol-table">
-          <div className="protocol-table-head">
-            <span>Business vector</span><span>Installed protocols</span><span>Control signal</span>
-          </div>
-          {protocols.map((row, index) => (
-            <div className="protocol-row" key={row.vector}>
-              <div><b>0{index + 1}</b><h3>{row.vector}</h3></div>
-              <ul>{row.protocols.map((item) => <li key={item}><span aria-hidden>→</span>{item}</li>)}</ul>
-              <p><span className="status-dot" aria-hidden />{row.signal}</p>
-            </div>
-          ))}
-        </div>
-      </FadeIn>
+      <div className="protocol-orbit-grid">
+        {protocols.map((row, index) => (
+          <FadeIn key={row.vector}>
+            <article className="space-protocol-card">
+              <div className="protocol-card-top">
+                <b>VEC_0{index + 1}</b>
+                <span><i aria-hidden />Signal live</span>
+              </div>
+              <h3>{row.vector}</h3>
+              <ul>
+                {row.protocols.map((item) => <li key={item}><span aria-hidden>→</span>{item}</li>)}
+              </ul>
+              <p>{row.signal}</p>
+            </article>
+          </FadeIn>
+        ))}
+      </div>
     </section>
   );
 }

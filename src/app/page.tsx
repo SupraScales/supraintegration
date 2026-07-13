@@ -9,7 +9,7 @@ import { Protocols } from "@/components/protocols";
 
 export default function Home() {
   return (
-    <>
+    <div className="space-page">
       <Header />
       <main>
         <Hero />
@@ -20,6 +20,6 @@ export default function Home() {
         <CTA />
       </main>
       <Footer />
-    </>
+    </div>
   );
 }
