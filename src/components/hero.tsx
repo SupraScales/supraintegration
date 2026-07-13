@@ -15,7 +15,7 @@ export function Hero() {
         className="pointer-events-none absolute left-1/2 top-1/4 -z-10 h-[700px] w-[1000px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-15 blur-[140px]"
         style={{
           background:
-            "radial-gradient(ellipse, rgba(201,168,76,0.5) 0%, rgba(139,105,20,0.3) 40%, transparent 70%)",
+            "radial-gradient(ellipse, color-mix(in srgb, var(--color-gold) 50%, transparent) 0%, color-mix(in srgb, var(--color-gold-dark) 30%, transparent) 40%, transparent 70%)",
         }}
       />
 
@@ -23,7 +23,7 @@ export function Hero() {
         <FadeIn>
           <div className="max-w-2xl">
             <span className="mb-7 inline-flex items-center gap-2 rounded-full border border-gold/20 bg-gold/[0.06] px-4 py-1.5 text-xs uppercase tracking-[0.16em] text-gold backdrop-blur-sm">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-gold shadow-[0_0_4px_rgba(201,168,76,0.6)]" />
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-gold shadow-[0_0_4px_color-mix(in_srgb,var(--color-gold)_60%,transparent)]" />
               A SupraScales Company
             </span>
             <h1 className="font-display text-[clamp(2.8rem,6.5vw,5rem)] font-semibold leading-[0.95] tracking-[-0.04em]">
@@ -39,7 +39,7 @@ export function Hero() {
             <div className="mt-10">
               <a
                 href="#contact"
-                className="group inline-flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-gold-dark via-gold to-gold-light px-8 py-4 text-sm font-semibold text-bg transition-all duration-500 hover:shadow-[0_8px_40px_rgba(201,168,76,0.35)]"
+                className="group inline-flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-gold-dark via-gold to-gold-light px-8 py-4 text-sm font-semibold text-bg transition-all duration-500 hover:shadow-[0_8px_40px_color-mix(in_srgb,var(--color-gold)_35%,transparent)]"
               >
                 Book a consultation
                 <span className="transition-transform duration-500 group-hover:translate-x-1">

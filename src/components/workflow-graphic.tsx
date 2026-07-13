@@ -30,7 +30,7 @@ function TravelingDot({
   return (
     <motion.circle
       r="3"
-      fill="#c9a84c"
+      style={{ fill: "var(--color-gold)" }}
       initial={{ opacity: 0 }}
       animate={{ opacity: [0, 0.9, 0.9, 0] }}
       transition={{
@@ -65,7 +65,7 @@ export function WorkflowGraphic() {
         transition={{ duration: 2, ease: "easeOut" }}
         style={{
           background:
-            "radial-gradient(ellipse, rgba(201,168,76,0.5) 0%, transparent 70%)",
+            "radial-gradient(ellipse, color-mix(in srgb, var(--color-gold) 50%, transparent) 0%, transparent 70%)",
         }}
       />
 
@@ -78,8 +78,14 @@ export function WorkflowGraphic() {
       >
         <defs>
           <linearGradient id="line-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="rgba(201,168,76,0.6)" />
-            <stop offset="100%" stopColor="rgba(201,168,76,0.15)" />
+            <stop
+              offset="0%"
+              style={{ stopColor: "color-mix(in srgb, var(--color-gold) 60%, transparent)" }}
+            />
+            <stop
+              offset="100%"
+              style={{ stopColor: "color-mix(in srgb, var(--color-gold) 15%, transparent)" }}
+            />
           </linearGradient>
           <filter id="node-glow">
             <feGaussianBlur stdDeviation="6" result="blur" />
@@ -136,15 +142,17 @@ export function WorkflowGraphic() {
               width="140"
               height="80"
               rx="16"
-              fill="rgba(201,168,76,0.04)"
-              stroke="rgba(201,168,76,0.25)"
+              style={{
+                fill: "color-mix(in srgb, var(--color-gold) 4%, transparent)",
+                stroke: "color-mix(in srgb, var(--color-gold) 25%, transparent)",
+              }}
               strokeWidth="1"
             />
             <text
               x={n.x + 70}
               y={n.y + 36}
               textAnchor="middle"
-              fill="#c9a84c"
+              style={{ fill: "var(--color-gold)" }}
               fontSize="14"
               fontWeight="600"
               fontFamily="var(--font-display)"
@@ -156,7 +164,7 @@ export function WorkflowGraphic() {
               x={n.x + 70}
               y={n.y + 56}
               textAnchor="middle"
-              fill="rgba(201,168,76,0.4)"
+              style={{ fill: "color-mix(in srgb, var(--color-gold) 40%, transparent)" }}
               fontSize="11"
               fontFamily="var(--font-display)"
             >
@@ -184,7 +192,7 @@ export function WorkflowGraphic() {
             height="96"
             rx="22"
             fill="none"
-            stroke="rgba(201,168,76,0.15)"
+            style={{ stroke: "color-mix(in srgb, var(--color-gold) 15%, transparent)" }}
             strokeWidth="1"
             animate={reduced ? {} : { strokeOpacity: [0.1, 0.3, 0.1] }}
             transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
@@ -196,7 +204,7 @@ export function WorkflowGraphic() {
             width="140"
             height="80"
             rx="18"
-            fill="rgba(201,168,76,0.08)"
+            style={{ fill: "color-mix(in srgb, var(--color-gold) 8%, transparent)" }}
           />
           <motion.rect
             x="170"
@@ -205,7 +213,7 @@ export function WorkflowGraphic() {
             height="80"
             rx="18"
             fill="none"
-            stroke="rgba(201,168,76,0.5)"
+            style={{ stroke: "color-mix(in srgb, var(--color-gold) 50%, transparent)" }}
             strokeWidth="1.5"
             animate={reduced ? {} : { strokeOpacity: [0.4, 0.8, 0.4] }}
             transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
@@ -214,7 +222,7 @@ export function WorkflowGraphic() {
             x="240"
             y="226"
             textAnchor="middle"
-            fill="#c9a84c"
+            style={{ fill: "var(--color-gold)" }}
             fontSize="16"
             fontWeight="700"
             fontFamily="var(--font-display)"
@@ -226,7 +234,7 @@ export function WorkflowGraphic() {
             x="240"
             y="250"
             textAnchor="middle"
-            fill="rgba(201,168,76,0.4)"
+            style={{ fill: "color-mix(in srgb, var(--color-gold) 40%, transparent)" }}
             fontSize="11"
             fontFamily="var(--font-display)"
           >
@@ -237,7 +245,7 @@ export function WorkflowGraphic() {
             cx="302"
             cy="198"
             r="4"
-            fill="#c9a84c"
+            style={{ fill: "var(--color-gold)" }}
             animate={reduced ? {} : { opacity: [0.9, 0.3, 0.9], r: [4, 6, 4] as number[] }}
             transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
           />

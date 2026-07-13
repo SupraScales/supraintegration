@@ -86,7 +86,7 @@ export function Approach() {
                 ease: luxuryEase,
               }}
             >
-              <div className="glass group relative cursor-pointer rounded-2xl p-8 transition-all duration-500 ease-out hover:-translate-y-0.5 hover:border-gold/20 hover:shadow-[0_20px_60px_rgba(201,168,76,0.06)]">
+              <div className="glass group relative cursor-pointer rounded-2xl p-8 transition-all duration-500 ease-out hover:-translate-y-0.5 hover:border-gold/20 hover:shadow-[0_20px_60px_color-mix(in_srgb,var(--color-gold)_6%,transparent)]">
                 <div className="mb-6 font-display text-5xl font-bold text-gold/15 transition-colors duration-700 ease-out group-hover:text-gold/30">
                   {s.number}
                 </div>
