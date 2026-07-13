@@ -24,7 +24,7 @@ make the systems understandable and keep the booking path obvious.
 | `--void-soft` | `#17171C` | Secondary depth layer |
 | `--white` | `#F6F5F1` | Primary text and bright stars |
 | `--white-soft` | `#C2C2C6` | Supporting copy |
-| `--white-dim` | `#8E8E94` | Labels and inactive systems |
+| `--white-dim` | `#AFAFB5` | Labels and inactive systems |
 | `--rule` | `#2A2A2E` | Borders and orbit lines |
 | `--red` | `#E6172A` | The only accent and active signal |
 
@@ -73,8 +73,11 @@ user scrolls.
 As the user scrolls beyond the first fold, seven system-stars expand away from the
 core: AI receptionist, outreach, lead nurture, content/social, paid growth/search,
 revenue operations, and SOP/founder offload. The active system moves forward,
-brightens red, and reveals concrete copy. Passed systems recede. The core must
-zoom out quickly and reveal the first active system early in the scroll journey.
+brightens red, and reveals concrete copy. Every active system resolves into the
+same fixed focal zone beside the explanation panel; never magnify the tiny orbit
+label into a different part of the screen. Use a full-size focal label so the type
+stays crisp. Passed systems recede. The core must zoom out quickly and reveal the
+first active system early in the scroll journey.
 
 ### Stage 3 — Operating orbit
 

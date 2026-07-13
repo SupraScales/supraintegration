@@ -7,6 +7,11 @@ export function Hero() {
         <div className="hero-orbit hero-orbit-one" />
         <div className="hero-orbit hero-orbit-two" />
         <div className="hero-orbit hero-orbit-three" />
+        <div className="hero-atom-layer hero-atom-back">
+          {orbitLabels.map((label, index) => (
+            <div className={`hero-atom-track hero-atom-track-${index + 1}`} key={`back-${label}`} />
+          ))}
+        </div>
         <div className="hero-core-shell">
           <div className="hero-core-axis" />
           <div className="hero-core">
@@ -14,16 +19,26 @@ export function Hero() {
             <b>OS</b>
           </div>
         </div>
-        {orbitLabels.map((label, index) => (
-          <div className={`hero-atom-orbit hero-atom-orbit-${index + 1}`} key={label}>
-            <div className={`hero-atom-runner hero-atom-runner-${index + 1}`}>
-              <div className="hero-atom-satellite">
-                <i />
-                <span>{label}</span>
+        <div className="hero-atom-layer hero-atom-front">
+          {orbitLabels.map((label, index) => (
+            <div className={`hero-atom-track hero-atom-track-${index + 1}`} key={`front-${label}`} />
+          ))}
+          {orbitLabels.map((label, index) => (
+            <div
+              className={`hero-atom-label-orbit hero-atom-label-orbit-${index + 1}`}
+              key={label}
+            >
+              <div className={`hero-atom-runner hero-atom-runner-${index + 1}`}>
+                <div className="hero-atom-satellite">
+                  <div className="hero-atom-label-face">
+                    <i />
+                    <span>{label}</span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       <div className="space-hero-copy">

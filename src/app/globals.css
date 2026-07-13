@@ -6,7 +6,7 @@
   --color-void-soft: #17171c;
   --color-white: #f6f5f1;
   --color-white-soft: #c2c2c6;
-  --color-white-dim: #8e8e94;
+  --color-white-dim: #afafb5;
   --color-rule: #2a2a2e;
   --color-rule-soft: rgba(246, 245, 241, 0.14);
   --color-rule-faint: rgba(246, 245, 241, 0.07);
@@ -358,11 +358,12 @@ section[id] {
 .hero-space-object {
   position: absolute;
   top: 50%;
-  right: max(-7rem, calc((100vw - 86rem) / 2));
+  right: max(2rem, calc((100vw - 86rem) / 2));
   z-index: 2;
   width: clamp(31rem, 48vw, 47rem);
   aspect-ratio: 1;
-  transform: translateY(-50%) rotateX(64deg) rotateZ(-11deg);
+  perspective: 1000px;
+  transform: translateY(-50%);
   transform-style: preserve-3d;
 }
 
@@ -372,6 +373,7 @@ section[id] {
   border: 1px solid var(--color-rule-soft);
   border-radius: 50%;
   transform: translate(-50%, -50%);
+  z-index: 0;
 }
 
 .hero-orbit-one { width: 98%; height: 98%; }
@@ -384,7 +386,8 @@ section[id] {
   left: 50%;
   width: 39%;
   aspect-ratio: 1;
-  transform: translate3d(-50%, -50%, 5rem) rotateX(-64deg) rotateZ(11deg);
+  z-index: 5;
+  transform: translate3d(-50%, -50%, 3rem);
   transform-style: preserve-3d;
 }
 
@@ -428,43 +431,98 @@ section[id] {
   transform: rotateX(72deg);
 }
 
-.hero-atom-orbit {
+.hero-atom-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transform-style: preserve-3d;
+}
+
+.hero-atom-back { z-index: 2; }
+.hero-atom-front { z-index: 6; }
+
+.hero-atom-track {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 78%;
-  height: 34%;
+  width: 68%;
+  aspect-ratio: 1;
   border: 1px solid var(--color-rule-soft);
   border-radius: 50%;
   transform-style: preserve-3d;
 }
 
-.hero-atom-orbit-1 { transform: translate(-50%, -50%) rotateZ(10deg); }
-.hero-atom-orbit-2 { transform: translate(-50%, -50%) rotateZ(70deg); }
-.hero-atom-orbit-3 { transform: translate(-50%, -50%) rotateZ(130deg); }
-.hero-atom-orbit-4 {
-  width: 88%;
-  height: 42%;
+.hero-atom-track-1 { transform: translate(-50%, -50%) rotateX(60deg) rotateZ(8deg); }
+.hero-atom-track-2 { transform: translate(-50%, -50%) rotateY(54deg) rotateZ(54deg); }
+.hero-atom-track-3 { transform: translate(-50%, -50%) rotateX(50deg) rotateY(22deg) rotateZ(118deg); }
+.hero-atom-track-4 {
+  width: 74%;
   border-color: var(--color-red-mid);
-  transform: translate(-50%, -50%) rotateZ(-35deg);
+  transform: translate(-50%, -50%) rotateX(62deg) rotateY(-18deg) rotateZ(-42deg);
+}
+
+.hero-atom-front > .hero-atom-track:not(.hero-atom-particle-track) {
+  clip-path: inset(49% 0 0 0);
+}
+
+.hero-atom-label-orbit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 68%;
+  aspect-ratio: 1;
+  --atom-counter-angle: -8deg;
+  --atom-unscale: 2.38;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) rotate(8deg) scaleY(0.42);
+  transform-style: preserve-3d;
+}
+
+.hero-atom-label-orbit-2 {
+  --atom-counter-angle: -54deg;
+  --atom-unscale: 1.82;
+  transform: translate(-50%, -50%) rotate(54deg) scaleY(0.55);
+}
+
+.hero-atom-label-orbit-3 {
+  --atom-counter-angle: -118deg;
+  --atom-unscale: 2.08;
+  transform: translate(-50%, -50%) rotate(118deg) scaleY(0.48);
+}
+
+.hero-atom-label-orbit-4 {
+  width: 74%;
+  --atom-counter-angle: 42deg;
+  --atom-unscale: 2.63;
+  transform: translate(-50%, -50%) rotate(-42deg) scaleY(0.38);
 }
 
 .hero-atom-runner {
   position: absolute;
   inset: 0;
+  --atom-delay: 0s;
+  --atom-direction: normal;
+  --atom-duration: 12s;
   border-radius: 50%;
-  animation: atom-orbit 10s linear infinite;
+  animation: atom-orbit var(--atom-duration) linear infinite;
+  animation-delay: var(--atom-delay);
+  animation-direction: var(--atom-direction);
 }
 
-.hero-atom-runner-1 { animation-delay: -1s; }
-.hero-atom-runner-2 { animation-duration: 12s; animation-delay: -4s; animation-direction: reverse; }
-.hero-atom-runner-3 { animation-duration: 14s; animation-delay: -7s; }
-.hero-atom-runner-4 { animation-duration: 16s; animation-delay: -10s; animation-direction: reverse; }
+.hero-atom-runner-2 { --atom-delay: -3s; }
+.hero-atom-runner-3 { --atom-delay: -6s; }
+.hero-atom-runner-4 { --atom-delay: -9s; }
 
 .hero-atom-satellite {
   position: absolute;
-  top: -0.35rem;
-  left: 50%;
+  top: 50%;
+  left: 100%;
+  animation: atom-label-upright var(--atom-duration) linear infinite;
+  animation-delay: var(--atom-delay);
+  animation-direction: var(--atom-direction);
+}
+
+.hero-atom-label-face {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -473,11 +531,11 @@ section[id] {
   font-size: 0.48rem;
   letter-spacing: 0.13em;
   text-transform: uppercase;
-  transform: translateX(-50%) rotateX(-64deg) rotateZ(11deg);
   white-space: nowrap;
+  transform: scaleY(var(--atom-unscale)) rotate(var(--atom-counter-angle));
 }
 
-.hero-atom-satellite i {
+.hero-atom-label-face i {
   width: 0.36rem;
   height: 0.36rem;
   border-radius: 50%;
@@ -722,6 +780,47 @@ section[id] {
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.04em;
+}
+
+.constellation-focus {
+  position: absolute;
+  top: 58%;
+  left: max(5rem, calc((100% - 76rem) / 2));
+  z-index: 18;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: min(22rem, calc(100% - 36rem));
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.constellation-focus .constellation-star {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.constellation-focus b,
+.constellation-focus span {
+  display: block;
+  text-transform: uppercase;
+}
+
+.constellation-focus b {
+  color: var(--color-red);
+  font-family: var(--font-mono);
+  font-size: 0.52rem;
+  letter-spacing: 0.18em;
+}
+
+.constellation-focus span {
+  margin-top: 0.25rem;
+  color: var(--color-white);
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 2.2vw, 2rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
 }
 
 .constellation-details {
@@ -1486,6 +1585,11 @@ section[id] {
   to { transform: rotate(360deg); }
 }
 
+@keyframes atom-label-upright {
+  from { transform: translate3d(-50%, -50%, 1rem) rotate(0deg); }
+  to { transform: translate3d(-50%, -50%, 1rem) rotate(-360deg); }
+}
+
 @media (max-width: 980px) {
   .hero-space-object {
     right: -15rem;
@@ -1563,7 +1667,7 @@ section[id] {
     bottom: -4rem;
     width: 25rem;
     opacity: 0.82;
-    transform: rotateX(64deg) rotateZ(-11deg);
+    transform: none;
   }
 
   .hero-coordinate,
@@ -1606,6 +1710,15 @@ section[id] {
   .constellation-star { width: 0.55rem; height: 0.55rem; }
   .constellation-star::before { width: 1.2rem; }
   .constellation-star::after { height: 1.2rem; }
+
+  .constellation-focus {
+    top: 47%;
+    left: 1rem;
+    width: calc(100% - 2rem);
+  }
+
+  .constellation-focus .constellation-star { width: 0.8rem; height: 0.8rem; }
+  .constellation-focus span { max-width: 14rem; font-size: 1.15rem; }
 
   .constellation-details {
     right: 1rem;

@@ -104,16 +104,13 @@ const systems: System[] = [
 function SystemNode({ system, index, progress }: { system: System; index: number; progress: MotionValue<number> }) {
   const start = 0.01 + index * 0.008;
   const expanded = 0.075 + index * 0.008;
-  const activeStart = 0.12 + index * 0.12;
-  const activeMid = activeStart + 0.04;
-  const activeEnd = activeStart + 0.1;
 
   const x = useTransform(progress, [0, start, expanded], ["0vw", "0vw", system.x]);
   const y = useTransform(progress, [0, start, expanded], ["0vh", "0vh", system.y]);
-  const z = useTransform(progress, [0, expanded, activeStart, activeMid, activeEnd, 1], [-420, -80, -80, 180, -80, -140]);
-  const scale = useTransform(progress, [0, start, expanded, activeStart, activeMid, activeEnd, 1], [0.08, 0.08, 0.72, 0.72, 1.7, 0.72, 0.58]);
+  const z = useTransform(progress, [0, expanded, 1], [-420, -80, -140]);
+  const scale = useTransform(progress, [0, start, expanded, 1], [0.08, 0.08, 0.72, 0.58]);
   const opacity = useTransform(progress, [0, start, expanded, 1], [0, 0, 0.72, 0.58]);
-  const counterRotate = useTransform(progress, [0, 0.25, 1], [0, 0, 310]);
+  const counterRotate = useTransform(progress, [0, 0.08, 1], [0, 0, 310]);
 
   return (
     <motion.div
@@ -121,6 +118,24 @@ function SystemNode({ system, index, progress }: { system: System; index: number
       data-side={system.x.startsWith("-") ? "left" : "right"}
       style={{ x, y, z, scale, opacity, rotate: counterRotate }}
     >
+      <i className="constellation-star" aria-hidden />
+      <div>
+        <b>SYS_{system.number}</b>
+        <span>{system.title}</span>
+      </div>
+    </motion.div>
+  );
+}
+
+function SystemFocus({ system, index, progress }: { system: System; index: number; progress: MotionValue<number> }) {
+  const start = 0.12 + index * 0.12;
+  const peak = start + 0.035;
+  const end = Math.min(0.99, start + 0.1);
+  const opacity = useTransform(progress, [Math.max(0, start - 0.025), start, peak, end, Math.min(1, end + 0.025)], [0, 0, 1, 1, 0]);
+  const y = useTransform(progress, [start, peak, end], [18, 0, -12]);
+
+  return (
+    <motion.div className="constellation-focus" style={{ opacity, y }}>
       <i className="constellation-star" aria-hidden />
       <div>
         <b>SYS_{system.number}</b>
@@ -209,6 +224,10 @@ export function Services() {
             ))}
           </motion.div>
         </div>
+
+        {systems.map((system, index) => (
+          <SystemFocus key={`focus-${system.number}`} system={system} index={index} progress={scrollYProgress} />
+        ))}
 
         <div className="constellation-details">
           {systems.map((system, index) => (
