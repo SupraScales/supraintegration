@@ -28,7 +28,6 @@ export function Footer() {
         </div>
       </div>
       <div className="site-footer-bottom">
-        <span>© {new Date().getFullYear()} Vryvo Vault LLC</span>
         <span>Supra Integration — a SupraScales company</span>
         <span>supraintegration.ai</span>
       </div>

@@ -58,7 +58,7 @@ export function CalendlyEmbed() {
         ref={containerRef}
         className="calendly-inline-widget"
         data-url={CALENDLY_URL}
-        aria-label="Schedule a 15-minute call with Brayden"
+        aria-label="Schedule a 15-minute systems audit"
       />
       <Script
         src="https://assets.calendly.com/assets/external/widget.js"

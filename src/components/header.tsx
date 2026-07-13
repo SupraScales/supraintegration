@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 const links = [
@@ -11,13 +11,47 @@ const links = [
 
 export function Header() {
   const [open, setOpen] = useState(false);
+  const logoVideoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    function syncLogoMotion() {
+      const video = logoVideoRef.current;
+      if (!video) return;
+
+      if (motionPreference.matches) {
+        video.pause();
+        video.currentTime = 0;
+        return;
+      }
+
+      void video.play().catch(() => undefined);
+    }
+
+    syncLogoMotion();
+    motionPreference.addEventListener("change", syncLogoMotion);
+    return () => motionPreference.removeEventListener("change", syncLogoMotion);
+  }, []);
 
   return (
     <header className="space-header">
       <nav className="space-nav" aria-label="Primary navigation">
         <Link href="/" className="space-logo">
-          <i aria-hidden />
-          <span>SUPRA</span>INTEGRATION
+          <video
+            ref={logoVideoRef}
+            className="space-logo-mark"
+            muted
+            loop
+            playsInline
+            poster="/supra-logo.jpg"
+            preload="metadata"
+            aria-hidden
+          >
+            <source src="/supra-logo-nav.webm" type="video/webm" />
+            <source src="/supra-logo-nav.mp4" type="video/mp4" />
+          </video>
+          <span className="space-logo-text"><b>SUPRA</b>INTEGRATION</span>
         </Link>
 
         <div className="space-nav-links">

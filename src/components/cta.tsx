@@ -24,7 +24,6 @@ export function CTA() {
 
         <FadeIn className="booking-calendar">
           <div className="booking-calendar-head">
-            <span>Brayden / 15 minutes</span>
             <b><span className="status-dot" aria-hidden /> Calendar live</b>
           </div>
           <div className="calendly-shell">

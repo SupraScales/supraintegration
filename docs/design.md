@@ -112,3 +112,7 @@ booking section while remaining inside the same dark spatial world.
   uses the dark void, white, and red palette rather than Calendly's white theme.
 - The Calendly embed auto-sizes to its content, has no nested scrollbar, and
   suppresses Calendly's optional privacy banner inside the booking panel.
+- The header wordmark uses the lightweight animated Supra circuit mark shared
+  with SupraScales. It pauses on the first frame for reduced-motion visitors.
+- The booking panel header shows only calendar status, with no person named.
+- The footer omits the parent-entity copyright line.
