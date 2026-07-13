@@ -41,14 +41,14 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Scroll-driven business-system journey. One SVG group is the camera. */
-.system-journey {
+/* Cinematic first-person growth-system journey. */
+.pov-journey {
   position: relative;
-  height: 470svh;
+  height: 520svh;
   border-bottom: 1px solid var(--color-rule-soft);
 }
 
-.system-journey-pin {
+.pov-journey-pin {
   position: sticky;
   top: 4rem;
   height: calc(100svh - 4rem);
@@ -57,27 +57,41 @@ body {
   background: var(--color-paper);
 }
 
-.system-journey-readout {
+.pov-scenes,
+.pov-scene {
+  position: absolute;
+  inset: 0;
+}
+
+.pov-scenes {
+  z-index: 0;
+  overflow: hidden;
+  background: var(--color-paper);
+}
+
+.pov-scene {
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+
+.pov-scene-image {
+  object-fit: cover;
+  object-position: center;
+}
+
+.pov-copy {
   position: relative;
-  z-index: 3;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 2rem;
+  z-index: 2;
   width: min(100% - 3rem, 72rem);
-  height: 16rem;
+  height: 100%;
   margin: 0 auto;
-  padding-top: 2rem;
   pointer-events: none;
 }
 
-.system-journey-copy {
-  position: relative;
-  max-width: 42rem;
-}
-
-.system-journey-card {
+.pov-copy-stage {
   position: absolute;
-  inset: 0 auto auto 0;
+  top: clamp(2rem, 6vh, 4rem);
+  left: 0;
   max-width: 42rem;
   opacity: 0;
   visibility: hidden;
@@ -88,24 +102,17 @@ body {
     visibility 0s;
 }
 
-.system-journey-card[data-active="true"] {
+.pov-copy-stage[data-active="true"] {
   opacity: 1;
   visibility: visible;
   transform: translateY(0);
-  transition:
-    opacity 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
-    visibility 0s;
 }
 
-.system-journey-eyebrow {
+.pov-eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 0.625rem;
-  margin-bottom: 0.875rem;
-  padding: 0.45rem 0.75rem;
-  border: 1px solid var(--color-rule-soft);
-  background: var(--color-paper-raised);
+  margin-bottom: 1rem;
   color: var(--color-ink-soft);
   font-family: var(--font-mono);
   font-size: 0.66rem;
@@ -114,40 +121,40 @@ body {
   text-transform: uppercase;
 }
 
-.system-journey-eyebrow span {
-  width: 0.375rem;
-  height: 0.375rem;
+.pov-eyebrow span {
+  width: 0.4rem;
+  height: 0.4rem;
   border-radius: 50%;
   background: var(--color-red);
 }
 
-.system-journey-card h1,
-.system-journey-card h2 {
-  max-width: 24ch;
+.pov-copy-stage h1,
+.pov-copy-stage h2 {
+  max-width: 15ch;
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: clamp(1.85rem, 4.2vw, 3.1rem);
+  font-size: clamp(2.4rem, 5.3vw, 4.9rem);
   font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.025em;
+  line-height: 0.91;
+  letter-spacing: -0.04em;
   text-transform: uppercase;
 }
 
-.system-journey-body {
-  max-width: 48ch;
-  margin-top: 0.75rem;
-  color: var(--color-ink-mid);
-  font-size: clamp(0.88rem, 1.4vw, 1rem);
+.pov-body {
+  max-width: 41ch;
+  margin-top: 1.15rem;
+  color: var(--color-ink-soft);
+  font-size: clamp(0.9rem, 1.35vw, 1.05rem);
   font-weight: 300;
   line-height: 1.55;
 }
 
-.system-journey-cta {
+.pov-cta {
   display: inline-flex;
   align-items: center;
   gap: 0.625rem;
-  margin-top: 1rem;
-  padding: 0.72rem 1rem;
+  margin-top: 1.25rem;
+  padding: 0.78rem 1.05rem;
   border: 1px solid var(--color-ink);
   background: var(--color-paper-raised);
   color: var(--color-ink);
@@ -164,216 +171,65 @@ body {
     transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.system-journey-cta:hover {
+.pov-cta:hover {
   border-color: var(--color-red);
   background: var(--color-red);
   color: var(--color-paper-raised);
   transform: translateY(-1px);
 }
 
-.system-journey-meter {
-  align-self: start;
-  min-width: 15rem;
-  padding-top: 1.1rem;
-  text-align: right;
-  opacity: 0;
-  transform: translateY(30px);
-  transition:
-    opacity 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.system-journey-meter[data-visible="true"] {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.system-journey-meter-label,
-.system-journey-meter-note {
-  display: block;
-  color: var(--color-ink-light);
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  font-weight: 500;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-}
-
-.system-journey-meter-value {
-  display: block;
-  margin-top: 0.3rem;
-  color: var(--color-ink);
-  font-family: var(--font-display);
-  font-size: clamp(2rem, 4vw, 3rem);
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.03em;
-}
-
-.system-journey-meter[data-mode="leak"] .system-journey-meter-value {
-  color: var(--color-red);
-}
-
-.system-journey-meter-note {
-  margin-top: 0.55rem;
-  font-size: 0.52rem;
-  letter-spacing: 0.14em;
-}
-
-.system-map-frame {
+.pov-stage-rail {
   position: absolute;
-  inset: 16rem 0 0;
-  overflow: hidden;
-  border-top: 1px solid var(--color-rule-soft);
-}
-
-.system-map {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.system-map-grid line {
-  stroke: var(--color-grid);
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
-}
-
-.system-map-camera {
-  will-change: transform;
-}
-
-.map-edge,
-.map-live-edge,
-.map-agent-edge {
-  fill: none;
-  vector-effect: non-scaling-stroke;
-}
-
-.map-edge {
-  stroke: var(--color-ink);
-  stroke-width: 1.2;
-  stroke-opacity: 0.34;
-  stroke-dasharray: 1 1;
-  stroke-dashoffset: 1;
-}
-
-.map-edge[data-active="true"] {
-  stroke: var(--color-red);
-  stroke-width: 1.8;
-  stroke-opacity: 1;
-}
-
-.map-node {
-  opacity: 0;
-  transform-box: fill-box;
-  transform-origin: center;
-}
-
-.map-node rect {
-  fill: var(--color-paper-raised);
-  stroke: var(--color-rule-soft);
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
-}
-
-.map-node[data-status="active"] rect,
-.map-node[data-status="leak"] rect {
-  stroke: var(--color-red);
-  stroke-width: 1.6;
-}
-
-.map-node[data-status="fixed"] rect {
-  stroke: var(--color-ink);
-  stroke-width: 1.25;
-}
-
-.map-node-label,
-.map-node-detail,
-.map-agent text {
-  font-family: var(--font-mono);
-  font-weight: 500;
-  text-transform: uppercase;
-}
-
-.map-node-label {
-  fill: var(--color-ink);
-  font-size: 10px;
-  letter-spacing: 0.13em;
-}
-
-.map-node-detail {
-  fill: var(--color-red);
-  font-size: 7.5px;
-  letter-spacing: 0.08em;
-  opacity: 0;
-}
-
-.map-node[data-status="leak"] .map-node-detail {
-  opacity: 1;
-}
-
-.map-agent-edge {
-  stroke: var(--color-red);
-  stroke-width: 1.5;
-  stroke-dasharray: 1 1;
-  stroke-dashoffset: 1;
-  opacity: 0;
-}
-
-.map-agent-edge[data-fixed="true"] {
-  stroke: var(--color-ink);
-  stroke-opacity: 0.55;
-}
-
-.map-agent {
-  opacity: 0;
-}
-
-.map-agent rect {
-  fill: var(--color-paper-raised);
-  stroke: var(--color-ink);
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
-}
-
-.map-agent line {
-  stroke: var(--color-red);
-  stroke-width: 3;
-  vector-effect: non-scaling-stroke;
-}
-
-.map-agent text {
-  fill: var(--color-ink);
-  font-size: 7.5px;
-  letter-spacing: 0.1em;
-}
-
-.map-live-edge {
-  stroke: var(--color-red);
-  stroke-width: 1.8;
-  stroke-dasharray: 0.018 0.13;
-  stroke-dashoffset: 0;
-  stroke-opacity: 0;
-}
-
-.system-map[data-stage="3"] .map-live-edge {
-  stroke-opacity: 0.92;
-  animation: system-map-flow 1.8s linear infinite;
-}
-
-@keyframes system-map-flow {
-  to {
-    stroke-dashoffset: -0.148;
-  }
-}
-
-.system-journey-cue {
-  position: absolute;
+  z-index: 3;
   right: 1.5rem;
   bottom: 1.25rem;
-  color: var(--color-ink-light);
+  left: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.pov-stage-rail > div {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.45rem;
+  align-items: center;
+  color: var(--color-ink-mid);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.pov-stage-rail span {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 2px;
+  margin-bottom: 0.35rem;
+  background: var(--color-rule-soft);
+}
+
+.pov-stage-rail b,
+.pov-stage-rail small {
+  font-size: 0.56rem;
+  font-weight: 500;
+}
+
+.pov-stage-rail > div[data-active="true"] {
+  color: var(--color-ink);
+}
+
+.pov-stage-rail > div[data-active="true"] span {
+  background: var(--color-red);
+}
+
+.pov-cue {
+  position: absolute;
+  z-index: 3;
+  right: 1.5rem;
+  bottom: 3.8rem;
+  color: var(--color-ink-mid);
   font-family: var(--font-mono);
   font-size: 0.58rem;
   font-weight: 500;
@@ -382,108 +238,93 @@ body {
   transition: opacity 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.system-journey-cue span {
+.pov-cue span {
   color: var(--color-red);
 }
 
-.system-journey-progress {
-  position: absolute;
-  left: 1.5rem;
-  bottom: 1.25rem;
-  display: flex;
-  gap: 0.35rem;
-}
-
-.system-journey-progress span {
-  width: 1.6rem;
-  height: 2px;
-  background: var(--color-rule-soft);
-}
-
-.system-journey-progress span[data-active="true"] {
-  background: var(--color-red);
-}
-
 @media (max-width: 700px) {
-  .system-journey {
-    height: 430svh;
+  .pov-journey {
+    height: 480svh;
   }
 
-  .system-journey-pin {
+  .pov-journey-pin {
     min-height: 32rem;
   }
 
-  .system-journey-readout {
-    display: block;
+  .pov-scene[data-scene="enter"] .pov-scene-image {
+    object-position: 50% center;
+  }
+
+  .pov-scene[data-scene="diagnose"] .pov-scene-image {
+    object-position: 50% center;
+  }
+
+  .pov-scene[data-scene="prove"] .pov-scene-image {
+    object-position: 54% center;
+  }
+
+  .pov-scene[data-scene="acquire"] .pov-scene-image {
+    object-position: 48% center;
+  }
+
+  .pov-scene[data-scene="operate"] .pov-scene-image {
+    object-position: 46% center;
+  }
+
+  .pov-copy {
     width: calc(100% - 2rem);
-    height: 18rem;
-    padding-top: 1.2rem;
   }
 
-  .system-journey-copy {
+  .pov-copy-stage {
+    top: 1.25rem;
     max-width: none;
   }
 
-  .system-journey-card {
-    max-width: none;
+  .pov-copy-stage h1,
+  .pov-copy-stage h2 {
+    max-width: 13ch;
+    font-size: clamp(2.05rem, 10.8vw, 3rem);
+    line-height: 0.94;
   }
 
-  .system-journey-card h1,
-  .system-journey-card h2 {
-    max-width: 16ch;
-    font-size: clamp(1.72rem, 8vw, 2.35rem);
-  }
-
-  .system-journey-body {
-    max-width: 38ch;
+  .pov-body {
+    max-width: 31ch;
+    margin-top: 0.85rem;
     font-size: 0.84rem;
     line-height: 1.45;
   }
 
-  .system-journey-card:not(:first-child) .system-journey-body {
-    max-width: 27ch;
+  .pov-cta {
+    margin-top: 1rem;
+    padding: 0.7rem 0.9rem;
   }
 
-  .system-journey-meter {
-    position: absolute;
-    top: 12.1rem;
-    right: 0;
-    min-width: 0;
-    padding-top: 0;
+  .pov-stage-rail {
+    right: 1rem;
+    bottom: 0.85rem;
+    left: 1rem;
+    gap: 0.35rem;
   }
 
-  .system-journey-meter-label,
-  .system-journey-meter-note {
-    font-size: 0.47rem;
-    letter-spacing: 0.12em;
+  .pov-stage-rail > div {
+    display: block;
   }
 
-  .system-journey-meter-value {
-    font-size: 1.55rem;
-  }
-
-  .system-journey-meter-note {
+  .pov-stage-rail b {
     display: none;
   }
 
-  .system-map-frame {
-    inset: 18rem 0 0;
+  .pov-stage-rail small {
+    display: block;
+    overflow: hidden;
+    font-size: 0.44rem;
+    letter-spacing: 0.08em;
+    text-overflow: ellipsis;
   }
 
-  .system-journey-cue {
+  .pov-cue {
     right: 1rem;
-    bottom: 0.85rem;
-    max-width: 12rem;
-    text-align: right;
-  }
-
-  .system-journey-progress {
-    left: 1rem;
-    bottom: 0.85rem;
-  }
-
-  .system-journey-progress span {
-    width: 1rem;
+    bottom: 3.1rem;
   }
 }
 
@@ -535,15 +376,13 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .animate-marquee,
-  .animate-pulse-dot,
-  .map-live-edge {
+  .animate-pulse-dot {
     animation: none;
   }
 
-  .system-journey-card,
-  .system-journey-meter,
-  .system-journey-cue,
-  .system-journey-cta {
+  .pov-copy-stage,
+  .pov-cue,
+  .pov-cta {
     transition: none;
   }
 }
