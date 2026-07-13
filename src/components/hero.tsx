@@ -1,4 +1,4 @@
-const orbitLabels = ["Capture", "Nurture", "Content", "Scale", "Operate"];
+const orbitLabels = ["Audit", "Prove", "Deploy", "Operate"];
 
 export function Hero() {
   return (
@@ -15,8 +15,13 @@ export function Hero() {
           </div>
         </div>
         {orbitLabels.map((label, index) => (
-          <div className={`hero-orbit-label hero-orbit-label-${index + 1}`} key={label}>
-            <i />{label}
+          <div className={`hero-atom-orbit hero-atom-orbit-${index + 1}`} key={label}>
+            <div className={`hero-atom-runner hero-atom-runner-${index + 1}`}>
+              <div className="hero-atom-satellite">
+                <i />
+                <span>{label}</span>
+              </div>
+            </div>
           </div>
         ))}
       </div>

@@ -64,14 +64,17 @@ must use a token from the `@theme` block in `src/app/globals.css`.
 ### Stage 1 — Core
 
 The first fold shows the Supra system core in deep space with direct copy and a
-clear booking action. It should feel dimensional before the user scrolls.
+clear booking action. Four labeled signals—Audit, Prove, Deploy, Operate—move on
+crossing atom-like orbits around the core. It should feel dimensional before the
+user scrolls.
 
 ### Stage 2 — Constellation
 
 As the user scrolls beyond the first fold, seven system-stars expand away from the
 core: AI receptionist, outreach, lead nurture, content/social, paid growth/search,
 revenue operations, and SOP/founder offload. The active system moves forward,
-brightens red, and reveals concrete copy. Passed systems recede.
+brightens red, and reveals concrete copy. Passed systems recede. The core must
+zoom out quickly and reveal the first active system early in the scroll journey.
 
 ### Stage 3 — Operating orbit
 
@@ -102,4 +105,5 @@ booking section while remaining inside the same dark spatial world.
 - Copy stays direct, simple, and concrete.
 - Do not invent results, client names, numbers, or testimonials.
 - Never guarantee outcomes.
-- The embedded Calendly remains part of the page with a direct-link fallback.
+- The embedded Calendly remains part of the page with a direct-link fallback and
+  uses the dark void, white, and red palette rather than Calendly's white theme.

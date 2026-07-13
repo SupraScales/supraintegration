@@ -428,8 +428,43 @@ section[id] {
   transform: rotateX(72deg);
 }
 
-.hero-orbit-label {
+.hero-atom-orbit {
   position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 78%;
+  height: 34%;
+  border: 1px solid var(--color-rule-soft);
+  border-radius: 50%;
+  transform-style: preserve-3d;
+}
+
+.hero-atom-orbit-1 { transform: translate(-50%, -50%) rotateZ(10deg); }
+.hero-atom-orbit-2 { transform: translate(-50%, -50%) rotateZ(70deg); }
+.hero-atom-orbit-3 { transform: translate(-50%, -50%) rotateZ(130deg); }
+.hero-atom-orbit-4 {
+  width: 88%;
+  height: 42%;
+  border-color: var(--color-red-mid);
+  transform: translate(-50%, -50%) rotateZ(-35deg);
+}
+
+.hero-atom-runner {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  animation: atom-orbit 10s linear infinite;
+}
+
+.hero-atom-runner-1 { animation-delay: -1s; }
+.hero-atom-runner-2 { animation-duration: 12s; animation-delay: -4s; animation-direction: reverse; }
+.hero-atom-runner-3 { animation-duration: 14s; animation-delay: -7s; }
+.hero-atom-runner-4 { animation-duration: 16s; animation-delay: -10s; animation-direction: reverse; }
+
+.hero-atom-satellite {
+  position: absolute;
+  top: -0.35rem;
+  left: 50%;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -438,22 +473,17 @@ section[id] {
   font-size: 0.48rem;
   letter-spacing: 0.13em;
   text-transform: uppercase;
-  transform: rotateX(-64deg) rotateZ(11deg);
+  transform: translateX(-50%) rotateX(-64deg) rotateZ(11deg);
+  white-space: nowrap;
 }
 
-.hero-orbit-label i {
+.hero-atom-satellite i {
   width: 0.36rem;
   height: 0.36rem;
   border-radius: 50%;
   background: var(--color-red);
   box-shadow: 0 0 0.6rem var(--color-red-glow);
 }
-
-.hero-orbit-label-1 { top: 8%; left: 45%; }
-.hero-orbit-label-2 { top: 33%; right: -2%; }
-.hero-orbit-label-3 { right: 9%; bottom: 16%; }
-.hero-orbit-label-4 { bottom: 5%; left: 32%; }
-.hero-orbit-label-5 { top: 43%; left: -2%; }
 
 .hero-coordinate {
   position: absolute;
@@ -700,12 +730,14 @@ section[id] {
   bottom: 3.5rem;
   z-index: 20;
   width: min(30rem, calc(100% - 3rem));
-  min-height: 17rem;
+  min-height: 20rem;
 }
 
 .constellation-detail {
   position: absolute;
   inset: 0;
+  display: flex;
+  flex-direction: column;
   padding: 1.4rem;
   border: 1px solid var(--color-rule-soft);
   background: var(--color-void-raised);
@@ -763,7 +795,7 @@ section[id] {
   display: grid;
   grid-template-columns: 6rem 1fr;
   gap: 1rem;
-  margin-top: 1rem;
+  margin-top: auto;
   padding-top: 0.9rem;
   border-top: 1px solid var(--color-rule-soft);
 }
@@ -1318,8 +1350,8 @@ section[id] {
 
 .booking-calendar {
   border: 1px solid var(--color-rule-soft);
-  background: var(--color-white);
-  color: var(--color-void);
+  background: var(--color-void-raised);
+  color: var(--color-white);
 }
 
 .booking-calendar-head {
@@ -1449,6 +1481,11 @@ section[id] {
   to { transform: scale(1.03); }
 }
 
+@keyframes atom-orbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 @media (max-width: 980px) {
   .hero-space-object {
     right: -15rem;
@@ -1574,7 +1611,7 @@ section[id] {
     right: 1rem;
     bottom: 1rem;
     width: calc(100% - 2rem);
-    min-height: 15rem;
+    min-height: 18rem;
   }
 
   .constellation-detail { padding: 1rem; }
@@ -1678,6 +1715,7 @@ section[id] {
 
   body::after,
   .hero-core,
+  .hero-atom-runner,
   .systems-ticker-track {
     animation: none;
   }

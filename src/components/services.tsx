@@ -102,11 +102,11 @@ const systems: System[] = [
 ];
 
 function SystemNode({ system, index, progress }: { system: System; index: number; progress: MotionValue<number> }) {
-  const start = 0.025 + index * 0.022;
-  const expanded = 0.21 + index * 0.018;
-  const activeStart = 0.32 + index * 0.087;
-  const activeMid = activeStart + 0.038;
-  const activeEnd = activeStart + 0.078;
+  const start = 0.01 + index * 0.008;
+  const expanded = 0.075 + index * 0.008;
+  const activeStart = 0.12 + index * 0.12;
+  const activeMid = activeStart + 0.04;
+  const activeEnd = activeStart + 0.1;
 
   const x = useTransform(progress, [0, start, expanded], ["0vw", "0vw", system.x]);
   const y = useTransform(progress, [0, start, expanded], ["0vh", "0vh", system.y]);
@@ -131,9 +131,9 @@ function SystemNode({ system, index, progress }: { system: System; index: number
 }
 
 function SystemDetail({ system, index, progress }: { system: System; index: number; progress: MotionValue<number> }) {
-  const start = 0.32 + index * 0.087;
-  const peak = start + 0.025;
-  const end = Math.min(0.99, start + 0.078);
+  const start = 0.12 + index * 0.12;
+  const peak = start + 0.035;
+  const end = Math.min(0.99, start + 0.1);
   const opacity = useTransform(progress, [Math.max(0, start - 0.025), start, peak, end, Math.min(1, end + 0.025)], [0, 0, 1, 1, 0]);
   const y = useTransform(progress, [start, peak, end], [24, 0, -18]);
 
@@ -155,9 +155,9 @@ export function Services() {
     target: sceneRef,
     offset: ["start start", "end end"],
   });
-  const orbitRotate = useTransform(scrollYProgress, [0, 0.25, 1], [0, 0, -310]);
-  const coreScale = useTransform(scrollYProgress, [0, 0.18, 0.32, 1], [2.6, 1, 0.72, 0.5]);
-  const coreOpacity = useTransform(scrollYProgress, [0, 0.26, 1], [1, 0.78, 0.38]);
+  const orbitRotate = useTransform(scrollYProgress, [0, 0.08, 1], [0, 0, -310]);
+  const coreScale = useTransform(scrollYProgress, [0, 0.035, 0.09, 1], [2.6, 1, 0.72, 0.5]);
+  const coreOpacity = useTransform(scrollYProgress, [0, 0.08, 1], [1, 0.78, 0.38]);
 
   if (reducedMotion) {
     return (
