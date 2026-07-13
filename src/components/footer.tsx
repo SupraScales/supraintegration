@@ -22,6 +22,7 @@ export function Footer() {
         <div>
           <h3>Contact</h3>
           <a href="mailto:hello@supraintegration.ai">hello@supraintegration.ai</a>
+          <a href="tel:+18018709331">801-870-9331</a>
           <span>Salt Lake City, Utah</span>
           <span>US businesses only</span>
         </div>

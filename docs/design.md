@@ -110,3 +110,5 @@ booking section while remaining inside the same dark spatial world.
 - Never guarantee outcomes.
 - The embedded Calendly remains part of the page with a direct-link fallback and
   uses the dark void, white, and red palette rather than Calendly's white theme.
+- The Calendly embed auto-sizes to its content, has no nested scrollbar, and
+  suppresses Calendly's optional privacy banner inside the booking panel.

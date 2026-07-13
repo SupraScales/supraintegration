@@ -11,6 +11,7 @@ declare global {
       initInlineWidget: (options: {
         url: string;
         parentElement: HTMLElement;
+        resize?: boolean;
       }) => void;
     };
   }
@@ -40,12 +41,14 @@ export function CalendlyEmbed() {
     url.searchParams.set("background_color", readColorToken("--color-void"));
     url.searchParams.set("text_color", readColorToken("--color-white"));
     url.searchParams.set("primary_color", readColorToken("--color-red"));
+    url.searchParams.set("hide_gdpr_banner", "1");
 
     initializedRef.current = true;
     containerRef.current.replaceChildren();
     window.Calendly.initInlineWidget({
       url: url.toString(),
       parentElement: containerRef.current,
+      resize: true,
     });
   }
 

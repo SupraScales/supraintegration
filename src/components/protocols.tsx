@@ -37,7 +37,7 @@ export function Protocols() {
 
       <div className="protocol-orbit-grid">
         {protocols.map((row, index) => (
-          <FadeIn key={row.vector}>
+          <FadeIn key={row.vector} className="protocol-card-shell">
             <article className="space-protocol-card">
               <div className="protocol-card-top">
                 <b>VEC_0{index + 1}</b>
