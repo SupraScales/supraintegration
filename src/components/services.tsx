@@ -82,7 +82,7 @@ function GlowCard({
         className="pointer-events-none absolute -inset-px opacity-0 transition-opacity duration-500 group-hover:opacity-100"
         style={{
           background:
-            "radial-gradient(280px circle at var(--glow-x, 50%) var(--glow-y, 50%), rgba(201,168,76,0.12), transparent 60%)",
+            "radial-gradient(280px circle at var(--glow-x, 50%) var(--glow-y, 50%), color-mix(in srgb, var(--color-gold) 12%, transparent), transparent 60%)",
         }}
       />
       {children}

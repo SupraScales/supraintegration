@@ -2,6 +2,37 @@
 
 import { useEffect, useRef } from "react";
 
+type RGB = { r: number; g: number; b: number };
+
+// Single source of truth for the particle colour: the palette token in
+// globals.css. Change --color-gold there and the particles follow.
+const BASE_COLOR_TOKEN = "--color-gold";
+
+// Per-particle jitter, kept identical to the original hand-tuned ranges:
+// red varies across [base.r - 26, base.r], green across [base.g - 28, base.g].
+const R_JITTER = 26;
+const G_JITTER = 28;
+
+function readTokenRGB(token: string): RGB {
+  const raw = getComputedStyle(document.documentElement)
+    .getPropertyValue(token)
+    .trim();
+  if (raw.startsWith("#")) {
+    const hex = raw.slice(1);
+    return {
+      r: parseInt(hex.slice(0, 2), 16),
+      g: parseInt(hex.slice(2, 4), 16),
+      b: parseInt(hex.slice(4, 6), 16),
+    };
+  }
+  const nums = raw.match(/\d+(\.\d+)?/g);
+  if (nums && nums.length >= 3) {
+    return { r: +nums[0], g: +nums[1], b: +nums[2] };
+  }
+  // Last-resort guard so a failed read never crashes the canvas; mirrors the token.
+  return { r: 201, g: 168, b: 76 };
+}
+
 interface Particle {
   x: number;
   y: number;
@@ -14,7 +45,13 @@ interface Particle {
   g: number;
 }
 
-function resetParticle(p: Particle, w: number, h: number, now: number) {
+function resetParticle(
+  p: Particle,
+  w: number,
+  h: number,
+  now: number,
+  base: RGB
+) {
   p.x = Math.random() * w;
   p.y = Math.random() * h;
   p.speed = Math.random() * 0.12 + 0.06;
@@ -22,8 +59,8 @@ function resetParticle(p: Particle, w: number, h: number, now: number) {
   p.fadeStart = now + Math.random() * 600 + 100;
   p.fadingOut = false;
   p.height = Math.random() * 2 + 1;
-  p.r = 175 + Math.floor(Math.random() * 26);
-  p.g = 140 + Math.floor(Math.random() * 28);
+  p.r = base.r - R_JITTER + Math.floor(Math.random() * R_JITTER);
+  p.g = base.g - G_JITTER + Math.floor(Math.random() * G_JITTER);
 }
 
 export function ParticleField() {
@@ -36,6 +73,8 @@ export function ParticleField() {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    const base = readTokenRGB(BASE_COLOR_TOKEN);
 
     let w = 0;
     let h = 0;
@@ -58,7 +97,7 @@ export function ParticleField() {
       particles = [];
       for (let i = 0; i < count; i++) {
         const p = {} as Particle;
-        resetParticle(p, w, h, now);
+        resetParticle(p, w, h, now, base);
         particles.push(p);
       }
     }
@@ -74,13 +113,13 @@ export function ParticleField() {
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
         p.y -= p.speed;
-        if (p.y < 0) resetParticle(p, w, h, now);
+        if (p.y < 0) resetParticle(p, w, h, now, base);
         if (!p.fadingOut && now > p.fadeStart) p.fadingOut = true;
         if (p.fadingOut) {
           p.opacity -= 0.008;
-          if (p.opacity <= 0) resetParticle(p, w, h, now);
+          if (p.opacity <= 0) resetParticle(p, w, h, now, base);
         }
-        ctx!.fillStyle = `rgba(${p.r},${p.g},76,${(p.opacity * 0.45).toFixed(2)})`;
+        ctx!.fillStyle = `rgba(${p.r},${p.g},${base.b},${(p.opacity * 0.45).toFixed(2)})`;
         ctx!.fillRect(p.x, p.y, 0.5, p.height);
       }
     }
@@ -124,7 +163,7 @@ export function AccentLines() {
           style={{
             top: `${pct}%`,
             background:
-              "linear-gradient(90deg, transparent, rgba(201,168,76,0.08), transparent)",
+              "linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-gold) 8%, transparent), transparent)",
           }}
         />
       ))}
@@ -135,7 +174,7 @@ export function AccentLines() {
           style={{
             left: `${pct}%`,
             height: "100%",
-            background: "rgba(201,168,76,0.06)",
+            background: "color-mix(in srgb, var(--color-gold) 6%, transparent)",
           }}
         />
       ))}

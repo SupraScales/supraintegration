@@ -14,7 +14,7 @@ export function CTA() {
         className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[500px] w-[700px] -translate-x-1/2 -translate-y-1/2 animate-glow-pulse rounded-full opacity-20 blur-[120px]"
         style={{
           background:
-            "radial-gradient(ellipse, rgba(201,168,76,0.7) 0%, rgba(139,105,20,0.4) 40%, transparent 70%)",
+            "radial-gradient(ellipse, color-mix(in srgb, var(--color-gold) 70%, transparent) 0%, color-mix(in srgb, var(--color-gold-dark) 40%, transparent) 40%, transparent 70%)",
         }}
       />
 
@@ -24,7 +24,7 @@ export function CTA() {
         className="pointer-events-none absolute left-1/3 top-1/3 -z-10 h-[300px] w-[400px] -translate-x-1/2 -translate-y-1/2 animate-glow-drift rounded-full opacity-10 blur-[100px]"
         style={{
           background:
-            "radial-gradient(ellipse, rgba(201,168,76,0.8) 0%, transparent 60%)",
+            "radial-gradient(ellipse, color-mix(in srgb, var(--color-gold) 80%, transparent) 0%, transparent 60%)",
         }}
       />
 
@@ -42,7 +42,7 @@ export function CTA() {
           </p>
           <a
             href="mailto:hello@supraintegration.ai"
-            className="group mt-12 inline-flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-gold-dark via-gold to-gold-light px-10 py-4 text-base font-semibold text-bg transition-all duration-500 hover:shadow-[0_12px_48px_rgba(201,168,76,0.3)]"
+            className="group mt-12 inline-flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-gold-dark via-gold to-gold-light px-10 py-4 text-base font-semibold text-bg transition-all duration-500 hover:shadow-[0_12px_48px_color-mix(in_srgb,var(--color-gold)_30%,transparent)]"
           >
             hello@supraintegration.ai
             <span className="transition-transform duration-300 group-hover:translate-x-1">
