@@ -1,108 +1,143 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { useRef, type CSSProperties } from "react";
+import {
+  motion,
+  useReducedMotion,
+  useScroll,
+  useTransform,
+  type MotionValue,
+} from "motion/react";
 
-const steps = [
+const layers = [
   {
     number: "01",
-    title: "Discover",
-    description:
-      "We map your workflows and find the places where AI saves real time or money.",
-    direction: { x: -30, y: 20 },
+    label: "Audit",
+    title: "Find the constraint",
+    body: "Trace demand, sales, fulfillment, and retention. Find the exact handoff where leads stall, customers drop, or the owner gets pulled back in.",
+    output: "A clear order of operations",
   },
   {
     number: "02",
-    title: "Build",
-    description:
-      "We scope a focused engagement, build it against your real tools, and validate it with your team.",
-    direction: { x: 0, y: 30 },
+    label: "Prove",
+    title: "Test before scaling",
+    body: "Put offers, hooks, and content in front of the market at low cost. Record the response and keep what earns attention and action.",
+    output: "Evidence for what to scale",
   },
   {
     number: "03",
-    title: "Scale",
-    description:
-      "Once it's proven, we expand coverage, harden the system, and hand you the keys.",
-    direction: { x: 30, y: 20 },
+    label: "Deploy",
+    title: "Connect the revenue path",
+    body: "Install calls, DMs, outreach, sales video, booking, CRM, nurture, and reporting as one coordinated system.",
+    output: "Fewer manual handoffs",
+  },
+  {
+    number: "04",
+    label: "Operate",
+    title: "Make the work repeatable",
+    body: "Add simple SOPs, ownership rules, health alerts, async updates, and management visibility so the team can run it.",
+    output: "Less founder dependence",
   },
 ];
 
-// Primary reference curve — design.md §9.1.
-const revealEase = [0.2, 0.8, 0.2, 1] as const;
+function LayerDetail({ layer, index, progress }: { layer: (typeof layers)[number]; index: number; progress: MotionValue<number> }) {
+  const ranges = [
+    { start: 0, center: 0.05, end: 0.2 },
+    { start: 0.22, center: 0.36, end: 0.5 },
+    { start: 0.52, center: 0.67, end: 0.81 },
+    { start: 0.83, center: 0.95, end: 1 },
+  ];
+  const { start, center, end } = ranges[index];
+  const opacityRanges = [
+    { input: [0, 0.12, 0.22, 1], output: [1, 1, 0, 0] },
+    { input: [0, 0.2, 0.3, 0.43, 0.53, 1], output: [0, 0, 1, 1, 0, 0] },
+    { input: [0, 0.5, 0.6, 0.73, 0.83, 1], output: [0, 0, 1, 1, 0, 0] },
+    { input: [0, 0.8, 0.9, 1], output: [0, 0, 1, 1] },
+  ];
+  const opacity = useTransform(
+    progress,
+    opacityRanges[index].input,
+    opacityRanges[index].output,
+  );
+  const y = useTransform(progress, [start, center, end], [24, 0, -18]);
 
-function SpineLine() {
-  const reduced = useReducedMotion();
   return (
-    <div
-      aria-hidden
-      className="absolute left-0 right-0 top-16 hidden h-px md:block"
-    >
-      <motion.div
-        initial={reduced ? false : { scaleX: 0 }}
-        whileInView={{ scaleX: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.8, ease: revealEase }}
-        className="h-full origin-left bg-gradient-to-r from-ink-light via-rule-soft to-transparent"
-      />
-    </div>
+    <motion.article className="layer-detail" style={{ opacity, y }}>
+      <p><span aria-hidden />Layer {layer.number} / {layer.label}</p>
+      <h3>{layer.title}</h3>
+      <div>{layer.body}</div>
+      <b>Output</b>
+      <strong>{layer.output}</strong>
+    </motion.article>
   );
 }
 
 export function Approach() {
-  const reduced = useReducedMotion();
+  const sceneRef = useRef<HTMLElement>(null);
+  const reducedMotion = useReducedMotion();
+  const { scrollYProgress } = useScroll({
+    target: sceneRef,
+    offset: ["start start", "end end"],
+  });
+  const ringRotate = useTransform(scrollYProgress, [0, 1], [0, -270]);
+  const ringTilt = useTransform(scrollYProgress, [0, 0.5, 1], [-8, 5, -8]);
+
+  if (reducedMotion) {
+    return (
+      <section id="system" className="layer-static">
+        <div className="space-section-heading">
+          <p className="space-eyebrow"><span aria-hidden />How the system is built</p>
+          <h2>Four layers. One <span>operating system.</span></h2>
+        </div>
+        <div className="layer-static-grid">
+          {layers.map((layer) => (
+            <article key={layer.number}>
+              <b>{layer.number} / {layer.label}</b>
+              <h3>{layer.title}</h3>
+              <p>{layer.body}</p>
+              <span>{layer.output}</span>
+            </article>
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   return (
-    <section
-      id="approach"
-      className="relative border-t border-rule-soft px-6 py-16 md:py-20"
-    >
-      <div className="mx-auto max-w-6xl">
-        <motion.div
-          initial={reduced ? false : { opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-50px" }}
-          transition={{ duration: 0.8, ease: revealEase }}
-          className="mx-auto mb-12 max-w-xl text-center"
-        >
-          <h2 className="font-display text-[clamp(2rem,4vw,3rem)] font-bold uppercase tracking-[-0.015em]">
-            From concept to{" "}
-            <span className="text-red">compound returns</span>
-          </h2>
-          <p className="mt-5 text-lg font-light text-ink-mid">
-            Every engagement ends with something live and working.
-          </p>
-        </motion.div>
+    <section id="system" ref={sceneRef} className="layer-journey">
+      <div className="layer-sticky">
+        <div className="layer-heading">
+          <p className="space-eyebrow"><span aria-hidden />Scroll / operating orbit</p>
+          <h2>Random tactics become one <span>operating system.</span></h2>
+          <p>Each layer turns toward you in the order it has to be built.</p>
+        </div>
 
-        <div className="relative grid gap-5 md:grid-cols-3">
-          <SpineLine />
-          {steps.map((s, i) => (
-            <motion.div
-              key={s.title}
-              initial={
-                reduced
-                  ? false
-                  : { opacity: 0, x: s.direction.x, y: s.direction.y }
-              }
-              whileInView={{ opacity: 1, x: 0, y: 0 }}
-              viewport={{ once: true, margin: "-50px" }}
-              transition={{
-                duration: 0.8,
-                delay: i * 0.08,
-                ease: revealEase,
-              }}
-            >
-              <div className="group relative h-full cursor-pointer border border-rule-soft bg-paper-raised p-8 transition-all duration-200 ease-[cubic-bezier(0.2,0.8,0.2,1)] hover:-translate-y-0.5 hover:border-ink hover:shadow-[0_8px_24px_rgba(20,20,24,0.06)]">
-                <div className="mb-6 font-display text-5xl font-bold text-red">
-                  {s.number}
-                </div>
-                <h3 className="mb-3 font-display text-xl font-bold uppercase tracking-[-0.005em] text-ink">
-                  {s.title}
-                </h3>
-                <p className="text-[0.94rem] font-light leading-relaxed text-ink-mid">
-                  {s.description}
-                </p>
-              </div>
-            </motion.div>
+        <div className="layer-detail-stack">
+          {layers.map((layer, index) => (
+            <LayerDetail key={layer.number} layer={layer} index={index} progress={scrollYProgress} />
           ))}
+        </div>
+
+        <div className="layer-stage" aria-hidden>
+          <div className="layer-axis" />
+          <motion.div className="layer-ring" style={{ rotateY: ringRotate, rotateX: ringTilt }}>
+            {layers.map((layer, index) => (
+              <article
+                className="layer-face"
+                style={{ "--layer-angle": `${index * 90}deg` } as CSSProperties}
+                key={layer.number}
+              >
+                <b>{layer.number}</b>
+                <span>{layer.label}</span>
+                <i />
+              </article>
+            ))}
+          </motion.div>
+          <div className="layer-core"><i /><span>OPERATING</span><b>LAYER</b></div>
+        </div>
+
+        <div className="layer-index" aria-hidden>
+          {layers.map((layer) => <span key={layer.number}>{layer.number}</span>)}
         </div>
       </div>
     </section>

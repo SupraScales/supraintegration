@@ -24,22 +24,22 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Supra Integration — AI Systems for Modern Business",
+  title: "Supra Integration — Growth Systems for Small Business",
   description:
-    "Supra Integration designs, builds, and deploys AI automation and agent systems that plug directly into the tools your business already runs on.",
+    "Supra Integration finds where revenue leaks and installs the agents, marketing systems, and operating procedures that close the gaps.",
   openGraph: {
-    title: "Supra Integration — AI Systems for Modern Business",
+    title: "Supra Integration — Growth Systems for Small Business",
     description:
-      "AI automation and agent systems that plug directly into the tools your business already runs on.",
+      "Agents, marketing systems, and operating procedures built around the places revenue leaks.",
     url: "https://supraintegration.ai",
     siteName: "Supra Integration",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Supra Integration — AI Systems for Modern Business",
+    title: "Supra Integration — Growth Systems for Small Business",
     description:
-      "AI automation and agent systems that plug directly into the tools your business already runs on.",
+      "Agents, marketing systems, and operating procedures built around the places revenue leaks.",
   },
 };
 

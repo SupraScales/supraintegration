@@ -1,35 +1,39 @@
-"use client";
-
 import { FadeIn } from "./motion";
+import { CalendlyEmbed } from "./calendly-embed";
 
 export function CTA() {
   return (
-    <section
-      id="contact"
-      className="relative overflow-hidden border-t border-rule-soft px-6 py-20 md:py-28"
-    >
-      <div className="mx-auto max-w-6xl text-center">
-        <FadeIn>
-          <p className="mb-5 inline-flex items-center gap-2.5 font-mono text-[0.72rem] font-medium uppercase tracking-[0.25em] text-ink-soft">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-red animate-pulse-dot" />
-            Ready to start?
+    <section id="contact" className="booking-section">
+      <div className="booking-grid" aria-hidden />
+      <div className="booking-inner">
+        <FadeIn className="booking-copy">
+          <p className="section-kicker"><span className="status-dot" aria-hidden />15-minute systems audit</p>
+          <h2>Find the leak. Leave with the <span>first move.</span></h2>
+          <p className="booking-intro">
+            We will look at how attention becomes a booked call, how follow-up
+            works, and where delivery still depends on you.
           </p>
-          <h2 className="font-display text-[clamp(2.4rem,5.5vw,4rem)] font-bold uppercase leading-[1.02] tracking-[-0.03em]">
-            Let&apos;s put AI to work{" "}
-            <span className="text-red">in your business</span>
-          </h2>
-          <p className="mx-auto mt-8 max-w-md text-lg font-light text-ink-mid">
-            Tell us what&apos;s slowing your team down.
+          <ol className="booking-list">
+            <li><b>01</b><span>Walk through acquisition and follow-up</span></li>
+            <li><b>02</b><span>Identify the clearest operating constraint</span></li>
+            <li><b>03</b><span>Map the first agent or system to install</span></li>
+            <li><b>04</b><span>Get an honest fit assessment</span></li>
+          </ol>
+          <p className="booking-note">No pitch deck. No guaranteed outcomes. Just a direct look at the system.</p>
+        </FadeIn>
+
+        <FadeIn className="booking-calendar">
+          <div className="booking-calendar-head">
+            <b><span className="status-dot" aria-hidden /> Calendar live</b>
+          </div>
+          <div className="calendly-shell">
+            <CalendlyEmbed />
+          </div>
+          <p className="booking-fallback">
+            Calendar not loading? <a href="https://calendly.com/brayden-supraintegration/15min">Open it in a new tab</a>
+            {" · "}
+            <a href="mailto:hello@supraintegration.ai">Email us</a>
           </p>
-          <a
-            href="mailto:hello@supraintegration.ai"
-            className="group mt-12 inline-flex cursor-pointer items-center gap-2.5 border border-ink bg-ink px-10 py-4 font-display text-base font-medium uppercase tracking-[0.08em] text-paper-raised transition-colors duration-200 hover:border-red hover:bg-red"
-          >
-            hello@supraintegration.ai
-            <span className="transition-transform duration-200 group-hover:translate-x-1">
-              →
-            </span>
-          </a>
         </FadeIn>
       </div>
     </section>
