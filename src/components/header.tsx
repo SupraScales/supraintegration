@@ -5,9 +5,9 @@ import Link from "next/link";
 import Image from "next/image";
 
 const links = [
-  { href: "#services", label: "Services" },
-  { href: "#approach", label: "Approach" },
-  { href: "#contact", label: "Contact" },
+  { href: "#agents", label: "Agents" },
+  { href: "#system", label: "System" },
+  { href: "#protocols", label: "SOPs" },
 ];
 
 function Logo() {
@@ -18,7 +18,7 @@ function Logo() {
       width={160}
       height={40}
       className="h-9 w-auto"
-      priority
+      preload
       onError={(e) => {
         const target = e.currentTarget;
         target.style.display = "none";
@@ -59,7 +59,7 @@ export function Header() {
           href="#contact"
           className="hidden cursor-pointer border border-ink bg-ink px-6 py-2.5 font-display text-[0.78rem] font-medium uppercase tracking-[0.08em] text-paper-raised transition-colors duration-200 hover:border-red hover:bg-red md:inline-block"
         >
-          Get started
+          Book an audit
         </a>
 
         <button
@@ -96,7 +96,7 @@ export function Header() {
             onClick={() => setOpen(false)}
             className="mt-3 inline-block border border-ink bg-ink px-6 py-2.5 font-display text-[0.78rem] font-medium uppercase tracking-[0.08em] text-paper-raised transition-colors duration-200 hover:border-red hover:bg-red"
           >
-            Get started
+            Book an audit
           </a>
         </div>
       )}
