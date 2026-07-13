@@ -11,7 +11,7 @@ const tools = [
 
 export function TrustStrip() {
   return (
-    <section className="border-t border-border/60 py-8 overflow-hidden">
+    <section className="overflow-hidden bg-ink py-5">
       <div
         className="edge-fade-x"
         style={{
@@ -25,9 +25,13 @@ export function TrustStrip() {
           {[...tools, ...tools, ...tools].map((name, i) => (
             <span
               key={`${name}-${i}`}
-              className="mx-10 inline-block font-display text-lg font-medium text-fg/40 md:mx-14"
+              className="mx-8 inline-flex items-center gap-8 font-mono text-[0.82rem] font-medium uppercase tracking-[0.28em] text-paper md:mx-10"
             >
               {name}
+              <span
+                aria-hidden
+                className="inline-block h-1 w-1 rounded-full bg-red"
+              />
             </span>
           ))}
         </div>
