@@ -1,19 +1,32 @@
 @import "tailwindcss";
 
-@theme inline {
-  --color-bg: #06050b;
-  --color-fg: #f5f0e5;
-  --color-muted: #8a8478;
-  --color-gold: #c9a84c;
-  --color-gold-light: #e8d48b;
-  --color-gold-dark: #8b6914;
-  --color-on-accent: #000;
-  --color-border: #16141e;
-  --color-glass: color-mix(in srgb, var(--color-gold) 3%, transparent);
-  --color-glass-border: color-mix(in srgb, var(--color-gold) 8%, transparent);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-display: var(--font-space-grotesk);
+@theme {
+  /* Blueprint / light palette — design.md §1.1 (single active layer) */
+  --color-paper: #f6f5f1;
+  --color-paper-raised: #ffffff;
+  --color-paper-deep: #edebe4;
+
+  --color-ink: #0e0e10;
+  --color-ink-soft: #2a2a2e;
+  --color-ink-mid: #5a5a60;
+  --color-ink-light: #8e8e94;
+  --color-ink-faint: #c2c2c6;
+
+  --color-rule: #1a1a1c;
+  --color-rule-soft: #dbd9d2;
+  --color-rule-faint: #e7e5de;
+
+  --color-grid: rgba(20, 20, 24, 0.04);
+
+  /* Brand red — the only accent. design.md §1.2 */
+  --color-red: #e6172a;
+  --color-red-soft: rgba(230, 23, 42, 0.08);
+  --color-red-mid: rgba(230, 23, 42, 0.18);
+
+  /* Fonts — strict roles per design.md §2.1 */
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-saira);
+  --font-mono: var(--font-jetbrains-mono);
 }
 
 html {
@@ -21,95 +34,62 @@ html {
 }
 
 body {
-  background: var(--color-bg);
-  color: var(--color-fg);
+  background: var(--color-paper);
+  color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  pointer-events: none;
-  opacity: 0.025;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-  background-repeat: repeat;
-  background-size: 128px 128px;
-}
-
-::selection {
-  background: var(--color-gold);
-  color: var(--color-on-accent);
-}
-
-.glass {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--color-gold) 4%, transparent) 0%,
-    color-mix(in srgb, var(--color-gold) 2%, transparent) 50%,
-    color-mix(in srgb, var(--color-gold) 4%, transparent) 100%
-  );
-  border: 1px solid var(--color-glass-border);
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
-}
-
-.gold-gradient {
-  background: linear-gradient(135deg, var(--color-gold-dark), var(--color-gold), var(--color-gold-light), var(--color-gold));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
 .edge-fade-x {
-  mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
-  -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 15%,
+    black 85%,
+    transparent
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 15%,
+    black 85%,
+    transparent
+  );
 }
 
-@keyframes hero-gold-enter {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.hero-gold-reveal {
-  animation: hero-gold-enter 1s cubic-bezier(0.22, 1, 0.36, 1) 0.5s both;
-}
-
+/* Ticker marquee — design.md §9.3 (scroll-x, 40s linear) */
 @keyframes marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-33.333%); }
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-33.333%);
+  }
 }
 
 .animate-marquee {
-  animation: marquee 25s linear infinite;
+  animation: marquee 40s linear infinite;
 }
 
-@keyframes glow-pulse {
-  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.18; }
-  50% { transform: translate(-50%, -50%) scale(1.15); opacity: 0.28; }
+/* Blueprint dot glow-ring pulse — design.md §8, §9.3 (pulse-dot-light, 2s) */
+@keyframes pulse-dot-light {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--color-red-soft);
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--color-red-soft);
+  }
 }
 
-.animate-glow-pulse {
-  animation: glow-pulse 6s ease-in-out infinite;
-}
-
-@keyframes glow-drift {
-  0%, 100% { transform: translate(-50%, -50%) translateX(0); opacity: 0.08; }
-  50% { transform: translate(-50%, -50%) translateX(40px); opacity: 0.14; }
-}
-
-.animate-glow-drift {
-  animation: glow-drift 8s ease-in-out infinite;
+.animate-pulse-dot {
+  animation: pulse-dot-light 2s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .animate-marquee,
-  .animate-glow-pulse,
-  .animate-glow-drift {
+  .animate-pulse-dot {
     animation: none;
   }
 }
-

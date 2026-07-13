@@ -3,13 +3,14 @@
 import { motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 
-const luxuryEase = [0.22, 1, 0.36, 1] as const;
+// Reference scroll-reveal curve — design.md §9.1 (primary cubic-bezier).
+const revealEase = [0.2, 0.8, 0.2, 1] as const;
 
 export function FadeIn({
   children,
   delay = 0,
   className,
-  y = 28,
+  y = 30,
 }: {
   children: ReactNode;
   delay?: number;
@@ -21,8 +22,8 @@ export function FadeIn({
     <motion.div
       initial={reduced ? false : { opacity: 0, y }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-10px" }}
-      transition={{ duration: 0.9, delay, ease: luxuryEase }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 0.8, delay, ease: revealEase }}
       className={className}
     >
       {children}
@@ -42,10 +43,10 @@ export function FadeInScale({
   const reduced = useReducedMotion();
   return (
     <motion.div
-      initial={reduced ? false : { opacity: 0, scale: 0.96 }}
-      whileInView={{ opacity: 1, scale: 1 }}
-      viewport={{ once: true, margin: "-10px" }}
-      transition={{ duration: 1, delay, ease: luxuryEase }}
+      initial={reduced ? false : { opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 0.8, delay, ease: revealEase }}
       className={className}
     >
       {children}
@@ -68,7 +69,7 @@ export function FadeInStagger({
       viewport={{ once: true, margin: "-10px" }}
       variants={{
         visible: {
-          transition: { staggerChildren: reduced ? 0 : 0.12 },
+          transition: { staggerChildren: reduced ? 0 : 0.08 },
         },
       }}
       className={className}
@@ -92,13 +93,13 @@ export function FadeInItem({
         reduced
           ? { hidden: {}, visible: {} }
           : {
-              hidden: { opacity: 0, y: 20 },
+              hidden: { opacity: 0, y: 30 },
               visible: {
                 opacity: 1,
                 y: 0,
                 transition: {
-                  duration: 0.7,
-                  ease: luxuryEase,
+                  duration: 0.8,
+                  ease: revealEase,
                 },
               },
             }
@@ -122,10 +123,10 @@ export function SlideInLeft({
   const reduced = useReducedMotion();
   return (
     <motion.div
-      initial={reduced ? false : { opacity: 0, x: -32 }}
+      initial={reduced ? false : { opacity: 0, x: -30 }}
       whileInView={{ opacity: 1, x: 0 }}
-      viewport={{ once: true, margin: "-10px" }}
-      transition={{ duration: 0.9, delay, ease: luxuryEase }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 0.8, delay, ease: revealEase }}
       className={className}
     >
       {children}

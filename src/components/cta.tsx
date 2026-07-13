@@ -6,46 +6,27 @@ export function CTA() {
   return (
     <section
       id="contact"
-      className="relative overflow-hidden border-t border-border/60 px-6 py-20 md:py-28"
+      className="relative overflow-hidden border-t border-rule-soft px-6 py-20 md:py-28"
     >
-      {/* Animated glow orb */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[500px] w-[700px] -translate-x-1/2 -translate-y-1/2 animate-glow-pulse rounded-full opacity-20 blur-[120px]"
-        style={{
-          background:
-            "radial-gradient(ellipse, color-mix(in srgb, var(--color-gold) 70%, transparent) 0%, color-mix(in srgb, var(--color-gold-dark) 40%, transparent) 40%, transparent 70%)",
-        }}
-      />
-
-      {/* Secondary orb for depth */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute left-1/3 top-1/3 -z-10 h-[300px] w-[400px] -translate-x-1/2 -translate-y-1/2 animate-glow-drift rounded-full opacity-10 blur-[100px]"
-        style={{
-          background:
-            "radial-gradient(ellipse, color-mix(in srgb, var(--color-gold) 80%, transparent) 0%, transparent 60%)",
-        }}
-      />
-
       <div className="mx-auto max-w-6xl text-center">
         <FadeIn>
-          <p className="mb-4 text-xs uppercase tracking-[0.2em] text-gold">
+          <p className="mb-5 inline-flex items-center gap-2.5 font-mono text-[0.72rem] font-medium uppercase tracking-[0.25em] text-ink-soft">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-red animate-pulse-dot" />
             Ready to start?
           </p>
-          <h2 className="font-display text-[clamp(2.4rem,5.5vw,4rem)] font-bold tracking-[-0.03em] leading-[1]">
+          <h2 className="font-display text-[clamp(2.4rem,5.5vw,4rem)] font-bold uppercase leading-[1.02] tracking-[-0.03em]">
             Let&apos;s put AI to work{" "}
-            <span className="gold-gradient">in your business</span>
+            <span className="text-red">in your business</span>
           </h2>
-          <p className="mx-auto mt-8 max-w-md text-lg text-muted">
+          <p className="mx-auto mt-8 max-w-md text-lg font-light text-ink-mid">
             Tell us what&apos;s slowing your team down.
           </p>
           <a
             href="mailto:hello@supraintegration.ai"
-            className="group mt-12 inline-flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-gold-dark via-gold to-gold-light px-10 py-4 text-base font-semibold text-bg transition-all duration-500 hover:shadow-[0_12px_48px_color-mix(in_srgb,var(--color-gold)_30%,transparent)]"
+            className="group mt-12 inline-flex cursor-pointer items-center gap-2.5 border border-ink bg-ink px-10 py-4 font-display text-base font-medium uppercase tracking-[0.08em] text-paper-raised transition-colors duration-200 hover:border-red hover:bg-red"
           >
             hello@supraintegration.ai
-            <span className="transition-transform duration-300 group-hover:translate-x-1">
+            <span className="transition-transform duration-200 group-hover:translate-x-1">
               →
             </span>
           </a>
