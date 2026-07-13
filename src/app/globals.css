@@ -7,9 +7,10 @@
   --color-gold: #c9a84c;
   --color-gold-light: #e8d48b;
   --color-gold-dark: #8b6914;
+  --color-on-accent: #000;
   --color-border: #16141e;
-  --color-glass: rgba(201, 168, 76, 0.03);
-  --color-glass-border: rgba(201, 168, 76, 0.08);
+  --color-glass: color-mix(in srgb, var(--color-gold) 3%, transparent);
+  --color-glass-border: color-mix(in srgb, var(--color-gold) 8%, transparent);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-display: var(--font-space-grotesk);
@@ -41,8 +42,7 @@ body::after {
 
 ::selection {
   background: var(--color-gold);
-  /* pure black, derived from the token so no raw color literal lives here */
-  color: rgb(from var(--color-gold) 0 0 0);
+  color: var(--color-on-accent);
 }
 
 .glass {
