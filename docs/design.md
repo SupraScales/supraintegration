@@ -84,6 +84,9 @@ first active system early in the scroll journey.
 The scene rotates through four connected layers: Audit, Prove, Deploy, Operate.
 Each layer turns toward the viewer as its explanation becomes active. The motion
 must clarify sequence, not become a decorative carousel.
+On mobile, rotating layer cards always render in front of the central operating
+disc. The desktop-only supporting sentence is hidden so it cannot reappear when
+the sticky scene is re-entered by reverse scrolling.
 
 ### Stage 4 — Protocols and booking
 
