@@ -1759,6 +1759,8 @@ section[id] {
     font-size: clamp(2.2rem, 11vw, 3.3rem);
   }
 
+  .layer-heading > p:last-child { display: none; }
+
   .layer-stage {
     top: 52%;
     right: 50%;
@@ -1767,7 +1769,10 @@ section[id] {
     transform: translate(50%, -50%);
   }
 
-  .layer-ring { --layer-radius: 10rem; }
+  .layer-ring {
+    --layer-radius: 10rem;
+    z-index: 6;
+  }
 
   .layer-face {
     top: -3.2rem;
