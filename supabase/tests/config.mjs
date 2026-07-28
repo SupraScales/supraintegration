@@ -3,8 +3,20 @@
 //   node --env-file=.env.test.local --test supabase/tests/rls.test.mjs
 // No dotenv dependency required.
 
+// Supabase clients expect the bare project URL (https://<ref>.supabase.co) with no
+// path. Tolerate a pasted trailing slash or a `/rest/v1` (REST endpoint) suffix so a
+// slightly-off SUPABASE_URL does not produce a doubled, malformed request path.
+function normalizeBaseUrl(raw) {
+  if (!raw) return null;
+  return raw
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/rest\/v1$/i, "")
+    .replace(/\/+$/, "");
+}
+
 export function readConfig() {
-  const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? null;
+  const url = normalizeBaseUrl(process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL);
   const anonKey =
     process.env.SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? null;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? null;
