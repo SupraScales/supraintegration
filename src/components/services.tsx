@@ -8,6 +8,7 @@ import {
   useTransform,
   type MotionValue,
 } from "motion/react";
+import { useHydrated } from "./use-hydrated";
 
 type System = {
   number: string;
@@ -166,6 +167,7 @@ function SystemDetail({ system, index, progress }: { system: System; index: numb
 export function Services() {
   const sceneRef = useRef<HTMLElement>(null);
   const reducedMotion = useReducedMotion();
+  const hydrated = useHydrated();
   const { scrollYProgress } = useScroll({
     target: sceneRef,
     offset: ["start start", "end end"],
@@ -174,7 +176,7 @@ export function Services() {
   const coreScale = useTransform(scrollYProgress, [0, 0.035, 0.09, 1], [2.6, 1, 0.72, 0.5]);
   const coreOpacity = useTransform(scrollYProgress, [0, 0.08, 1], [1, 0.78, 0.38]);
 
-  if (reducedMotion) {
+  if (hydrated && reducedMotion) {
     return (
       <section id="agents" className="constellation-static">
         <div className="space-section-heading">

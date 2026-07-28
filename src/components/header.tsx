@@ -58,7 +58,13 @@ export function Header() {
           {links.map((link) => <a key={link.href} href={link.href}>{link.label}</a>)}
         </div>
 
-        <a className="space-nav-cta" href="#contact">Book an audit</a>
+        <div className="space-nav-actions">
+          <Link className="space-nav-login" href="/login">
+            <span aria-hidden />
+            Client login
+          </Link>
+          <a className="space-nav-cta" href="#contact">Book an audit</a>
+        </div>
 
         <button
           className="space-menu-button"
@@ -75,6 +81,7 @@ export function Header() {
           {links.map((link) => (
             <a key={link.href} href={link.href} onClick={() => setOpen(false)}>{link.label}</a>
           ))}
+          <Link href="/login" onClick={() => setOpen(false)}>Client login</Link>
           <a href="#contact" onClick={() => setOpen(false)}>Book an audit</a>
         </div>
       )}
