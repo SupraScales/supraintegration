@@ -8,6 +8,7 @@ import {
   useTransform,
   type MotionValue,
 } from "motion/react";
+import { useHydrated } from "./use-hydrated";
 
 const layers = [
   {
@@ -75,6 +76,7 @@ function LayerDetail({ layer, index, progress }: { layer: (typeof layers)[number
 export function Approach() {
   const sceneRef = useRef<HTMLElement>(null);
   const reducedMotion = useReducedMotion();
+  const hydrated = useHydrated();
   const { scrollYProgress } = useScroll({
     target: sceneRef,
     offset: ["start start", "end end"],
@@ -82,7 +84,7 @@ export function Approach() {
   const ringRotate = useTransform(scrollYProgress, [0, 1], [0, -270]);
   const ringTilt = useTransform(scrollYProgress, [0, 0.5, 1], [-8, 5, -8]);
 
-  if (reducedMotion) {
+  if (hydrated && reducedMotion) {
     return (
       <section id="system" className="layer-static">
         <div className="space-section-heading">
