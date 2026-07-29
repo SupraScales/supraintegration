@@ -1,12 +1,16 @@
 // RLS authorization matrix for the Hermes / client portal foundation.
 //
-// Runs against a development/staging Supabase project with the migration
-// supabase/migrations/202607280001_hermes_foundation.sql applied. It signs in as
-// real seeded users so auth.uid() and every RLS policy apply exactly as in
-// production. The service-role key is used only to arrange and tear down fixtures.
+// Runs against a development/staging Supabase project with BOTH migrations applied,
+// in order: 202607280001_hermes_foundation.sql, then 202607280002_agent_message_role.sql.
+// It signs in as real seeded users so auth.uid(), every RLS policy, and the
+// agent-message role trigger apply exactly as in production. The service-role key is
+// used only to arrange and tear down fixtures.
 //
 // Run:
-//   node --env-file=.env.test.local --test supabase/tests/rls.test.mjs
+//   npm test
+//
+// which is `node --env-file-if-exists=.env.test.local --test supabase/tests/rls.test.mjs`.
+// `--env-file-if-exists` requires Node >= 20.12; see the `engines` field in package.json.
 //
 // See supabase/tests/README.md for staging setup and the full test/user matrix.
 
@@ -20,8 +24,22 @@ import { USERS } from "./fixtures.mjs";
 
 // If the environment is not configured, register a single skipped test instead of
 // crashing, so `node --test` in a bare checkout stays green.
+//
+// A skipped suite still exits 0, so a job that only runs `npm test` proves nothing
+// about authorization. Any environment that is SUPPOSED to have staging credentials
+// must set RLS_REQUIRE_CONFIG=true, which turns the skip into a hard failure rather
+// than a silent green. The protected CI job does exactly that.
 if (!readConfig().ok) {
-  test("RLS matrix", { skip: "No staging Supabase config; see supabase/tests/README.md" }, () => {});
+  if (process.env.RLS_REQUIRE_CONFIG === "true") {
+    test("RLS matrix", () => {
+      assert.fail(
+        "RLS_REQUIRE_CONFIG=true but the Supabase test config is missing. Set SUPABASE_URL, " +
+          "SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY. See supabase/tests/README.md.",
+      );
+    });
+  } else {
+    test("RLS matrix", { skip: "No staging Supabase config; see supabase/tests/README.md" }, () => {});
+  }
 } else {
   // ---- shared assertions -------------------------------------------------------
   async function read(client, table, build = (q) => q) {
@@ -311,7 +329,7 @@ if (!readConfig().ok) {
     );
   });
 
-  // ---- 13. agent_messages: conversation boundary + future role restriction -----
+  // ---- 13. agent_messages: conversation boundary + role restriction ------------
   test("client cannot write into another org's conversation", async () => {
     assertWriteDenied(
       await tryInsert(ctx.clients.clientAMember, "agent_messages", {
@@ -323,33 +341,93 @@ if (!readConfig().ok) {
     );
   });
 
-  // FUTURE SECURITY (currently NOT enforced by the migration): once the live agent
-  // endpoint exists, client users must not be able to author assistant/system
-  // messages — only 'user'. This is skipped until a policy/trigger enforces it.
-  // See supabase/tests/README.md ("agent_messages hardening") for the proposed fix.
-  // To activate: add the restriction, then remove `skip`.
-  test(
-    "client cannot forge assistant/system agent messages",
-    { skip: "Not yet enforced — add a role restriction with the live agent endpoint (see README)." },
-    async () => {
-      const conversation = await tryInsert(ctx.clients.clientAMember, "agent_conversations", {
-        organization_id: ctx.orgIds.clientA,
-        created_by_user_id: ctx.userIds.clientAMember,
-        title: "role-restriction check",
-      });
-      assertWriteAllowed(conversation, "client creates own conversation");
-      const conversationId = conversation.data[0].id;
+  // Client A's member owns every conversation created here, so these tests probe
+  // the role restriction alone rather than the tenant boundary above.
+  async function newClientAConversation(title) {
+    const conversation = await tryInsert(ctx.clients.clientAMember, "agent_conversations", {
+      organization_id: ctx.orgIds.clientA,
+      created_by_user_id: ctx.userIds.clientAMember,
+      title,
+    });
+    assertWriteAllowed(conversation, `client creates conversation "${title}"`);
+    return conversation.data[0].id;
+  }
 
-      for (const role of ["assistant", "system"]) {
-        assertWriteDenied(
-          await tryInsert(ctx.clients.clientAMember, "agent_messages", {
-            conversation_id: conversationId,
-            role,
-            content: `forged ${role} message`,
-          }),
-          `client forges ${role} message`,
-        );
-      }
-    },
-  );
+  // Enforced by 202607280002_agent_message_role.sql. A client must never be able
+  // to author a turn that reads as if Hermes produced it.
+  test("client cannot forge assistant/system agent messages", async () => {
+    const conversationId = await newClientAConversation("role-restriction check");
+
+    for (const role of ["assistant", "system"]) {
+      assertWriteDenied(
+        await tryInsert(ctx.clients.clientAMember, "agent_messages", {
+          conversation_id: conversationId,
+          role,
+          content: `forged ${role} message`,
+        }),
+        `client forges ${role} message`,
+      );
+    }
+
+    // Nothing survived the blocked writes.
+    const stored = await read(ctx.clients.clientAMember, "agent_messages", (q) =>
+      q.eq("conversation_id", conversationId),
+    );
+    assert.equal(stored.data.length, 0, "no forged message may be persisted");
+  });
+
+  // The client's own legitimate turn still works, and the agent-output fields
+  // they tried to supply are stripped instead of trusted.
+  test("client can still write a user-role message, without forged agent output", async () => {
+    const conversationId = await newClientAConversation("client user message");
+
+    const message = await tryInsert(ctx.clients.clientAMember, "agent_messages", {
+      conversation_id: conversationId,
+      role: "user",
+      content: "Which leads should we contact today?",
+      sources: [{ table: "operational_records", id: "forged" }],
+      recommended_actions: [{ action: "forged recommendation" }],
+      error_code: "forged",
+    });
+    assertWriteAllowed(message, "client writes own user message");
+
+    const row = message.data[0];
+    assert.equal(row.role, "user", "client message must remain role = user");
+    assert.deepEqual(row.sources, [], "client-supplied sources must be stripped");
+    assert.deepEqual(row.recommended_actions, [], "client-supplied recommended actions must be stripped");
+    assert.equal(row.error_code, null, "client-supplied error code must be stripped");
+
+    // Escalating an existing message is blocked too: agent_messages has no update
+    // policy, and the trigger also fires before update.
+    const escalated = await ctx.clients.clientAMember
+      .from("agent_messages")
+      .update({ role: "assistant" })
+      .eq("id", row.id)
+      .select("*");
+    assert.equal((escalated.data ?? []).length, 0, "client must not escalate their own message to assistant");
+  });
+
+  // Positive control: authorized internal Supra users may author assistant turns,
+  // and their agent-output fields are preserved rather than stripped.
+  for (const who of ["internalAdmin", "internalMember"]) {
+    test(`${who} can write an assistant-role agent message`, async () => {
+      const message = await tryInsert(ctx.clients[who], "agent_messages", {
+        conversation_id: ctx.seed.clientA.conversationId,
+        role: "assistant",
+        content: `Assistant turn authored by ${who}.`,
+        sources: [{ table: "operational_records", date_range: "last_30_days" }],
+        recommended_actions: [{ action: "review the pipeline" }],
+      });
+      assertWriteAllowed(message, `${who} writes assistant message`);
+
+      const row = message.data[0];
+      assert.equal(row.role, "assistant", `${who} must be able to author an assistant turn`);
+      assert.equal(row.sources.length, 1, "internal-authored sources must be preserved");
+      assert.equal(
+        row.recommended_actions.length,
+        1,
+        "internal-authored recommended actions must be preserved",
+      );
+    });
+  }
 }
