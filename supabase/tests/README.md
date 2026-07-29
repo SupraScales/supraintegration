@@ -33,7 +33,25 @@ production. No new dependencies: Node's built-in test runner + `@supabase/supaba
 | 15 | Client's own `user` message still works, and forged agent-output fields are stripped | `client can still write a user-role message, without forged agent output` |
 | 16 | Internal Supra users **can** author `assistant` messages, and their sources survive (positive control) | `internalAdmin can write an assistant-role agent message`, `internalMember can write an assistant-role agent message` |
 
+| 17 | Internal admin creates and manages scope records | `internal admin can create and manage scope records` |
+| 18 | Internal member keeps exactly the existing role model: read yes, write no | `internal member gets exactly the existing role model: read yes, write no` |
+| 19 | Client A cannot read Client B scope records, including B's *published* deliverable | `client A cannot read Client B scope records` |
+| 20 | Client cannot read internal scope notes, internal questions, or unapproved decisions | `client users cannot read internal scope notes, questions or unapproved decisions` |
+| 21 | Client sees only the published, client-visible deliverable (positive control) | `client sees only the published, client-visible deliverable` |
+| 22 | Client cannot approve a scope version | `client user cannot approve a scope version` |
+| 23 | Client cannot mark a deliverable completed through a forged write | `client user cannot mark a deliverable completed through a forged write` |
+| 24 | Agent-created records are forced internal and unpublished | `agent-created records default to internal and unpublished` |
+| 25 | Required acceptance criteria prevent premature completion | `required acceptance criteria prevent premature completion` |
+| 26 | Verified evidence plus approval allow valid completion | `evidence and approval allow valid completion` |
+| 27 | A lower-authority source cannot supersede a higher-authority record | `a lower-authority source cannot silently supersede a higher-authority record` |
+| 28 | Agent inference stays noncanonical until a human promotes it | `agent inference stays noncanonical until a human promotes it` |
+| 29 | Publication requires an internal approver and an explicit visibility change | `publication requires an internal Supra approver and an explicit visibility change` |
+| 30 | Authorized mutations create audit events, with no leaked notes or references | `meaningful authorized mutations create audit events`, `audit payloads carry no notes, answers or secure references` |
+| 31 | Anonymous and suspended access denied on every new table | `anonymous users cannot access scope tables`, `suspended membership cannot access scope tables` |
+
 Rows 14–16 are enforced by `supabase/migrations/202607280002_agent_message_role.sql`.
+Rows 17–31 are enforced by `supabase/migrations/202607290003_scope_truth_layer.sql`; see
+`docs/phase-1-scope-truth.md`.
 There are **no intentionally skipped security tests** once staging config is present.
 
 Test 15 also asserts that a client cannot `UPDATE` their own message to `assistant`. Be
@@ -48,7 +66,7 @@ against a future migration adding an update policy without reconsidering the rol
 2. Apply the migrations to it, **in order** (one-time). Either:
    - Supabase CLI: `supabase db push` (or `supabase migration up`) against the staging project, or
    - Dashboard > SQL Editor: paste and run `supabase/migrations/202607280001_hermes_foundation.sql`,
-     then `supabase/migrations/202607280002_agent_message_role.sql`.
+     then `202607280002_agent_message_role.sql`, then `202607290003_scope_truth_layer.sql`.
 3. Auth settings: the defaults are fine for these tests (users are created pre-confirmed
    via the Admin API). No SMTP is required for the matrix.
 4. Copy the keys: Dashboard > Project Settings > API — project URL, `anon`/publishable
@@ -96,6 +114,19 @@ RLS_REQUIRE_CONFIG=true
 
 which turns the "no config" skip into a hard failure, so a missing or expired secret
 can never be mistaken for a pass.
+
+### Local migration harness (no credentials needed)
+
+```bash
+supabase/tests/local/run.sh
+```
+
+Applies every migration to a throwaway PostgreSQL cluster and asserts trigger,
+constraint and RLS behaviour without any hosted project. Useful for validating
+migration logic on a laptop or in a bare checkout.
+
+**It does not replace this suite.** Its auth layer is a shim — no JWT is ever signed
+or verified, and no PostgREST behaviour runs. See `local/README.md`.
 
 ## Continuous integration
 

@@ -21,4 +21,8 @@ export const USERS = {
   clientAMember: { email: "rls.clienta.member@supra.test", org: "clientA", role: "client_member", status: "active" },
   clientBAdmin: { email: "rls.clientb.admin@supra.test", org: "clientB", role: "client_admin", status: "active" },
   inactiveClientA: { email: "rls.inactive@supra.test", org: "clientA", role: "client_member", status: "suspended" },
+  // The identity Phase 1B agent-authored records are attributed to. It is an
+  // ordinary internal member: the restriction on agents comes from
+  // created_by_actor_type = 'agent', not from a weaker role.
+  agent: { email: "rls.agent@supra.test", org: "internal", role: "internal_member", status: "active" },
 };
