@@ -1,21 +1,34 @@
 @import "tailwindcss";
 
 @theme {
-  --color-void: #050507;
-  --color-void-raised: #0e0e10;
-  --color-void-soft: #17171c;
-  --color-white: #f6f5f1;
-  --color-white-soft: #c2c2c6;
-  --color-white-dim: #afafb5;
-  --color-rule: #2a2a2e;
-  --color-rule-soft: rgba(246, 245, 241, 0.14);
-  --color-rule-faint: rgba(246, 245, 241, 0.07);
+  --color-paper: #f6f5f1;
+  --color-paper-raised: #eceae3;
+  --color-paper-soft: #eceae3;
+  --color-ink: #0e0e10;
+  --color-ink-soft: #2a2a2e;
+  --color-ink-mid: #5a5a60;
+  --color-ink-light: #73737a;
+  --color-card-dark: #0e0e10;
+  --color-on-dark: #f6f5f1;
+  --color-on-dark-soft: #c2c2c6;
+  --color-on-dark-dim: #afafb5;
+  --color-dark-rule: rgba(246, 245, 241, 0.16);
+  --color-dark-rule-faint: rgba(246, 245, 241, 0.08);
+  --color-void: #f6f5f1;
+  --color-void-raised: #eceae3;
+  --color-void-soft: #eceae3;
+  --color-white: #0e0e10;
+  --color-white-soft: #2a2a2e;
+  --color-white-dim: #5a5a60;
+  --color-rule: #c2bfb6;
+  --color-rule-soft: rgba(14, 14, 16, 0.16);
+  --color-rule-faint: rgba(14, 14, 16, 0.07);
   --color-red: #e6172a;
-  --color-red-soft: rgba(230, 23, 42, 0.14);
-  --color-red-mid: rgba(230, 23, 42, 0.32);
-  --color-red-glow: rgba(230, 23, 42, 0.48);
-  --color-white-glow: rgba(246, 245, 241, 0.45);
-  --color-void-nav: rgba(5, 5, 7, 0.92);
+  --color-red-soft: rgba(230, 23, 42, 0.1);
+  --color-red-mid: rgba(230, 23, 42, 0.28);
+  --color-red-glow: rgba(230, 23, 42, 0.32);
+  --color-white-glow: rgba(14, 14, 16, 0.2);
+  --color-void-nav: rgba(246, 245, 241, 0.94);
   --color-transparent: transparent;
 
   --font-sans: var(--font-inter);
@@ -53,7 +66,7 @@ body::after {
 }
 
 body::before {
-  opacity: 0.68;
+  opacity: 0.62;
   background-image:
     radial-gradient(circle at 8% 12%, var(--color-white) 0 1px, var(--color-transparent) 1.4px),
     radial-gradient(circle at 17% 41%, var(--color-white-dim) 0 1px, var(--color-transparent) 1.4px),
@@ -69,6 +82,7 @@ body::before {
     radial-gradient(circle at 41% 94%, var(--color-white-dim) 0 1px, var(--color-transparent) 1.3px),
     radial-gradient(circle at 78% 92%, var(--color-white) 0 1px, var(--color-transparent) 1.4px);
   background-size: 29rem 23rem;
+  animation: star-twinkle-soft 7.2s ease-in-out infinite alternate-reverse;
 }
 
 body::after {
@@ -98,9 +112,7 @@ section[id] {
 .space-page {
   position: relative;
   z-index: 1;
-  background:
-    radial-gradient(circle at 50% 8%, var(--color-red-soft), var(--color-transparent) 22rem),
-    linear-gradient(180deg, var(--color-transparent), var(--color-void) 75rem);
+  background: radial-gradient(circle at 50% 8%, var(--color-red-soft), var(--color-transparent) 22rem);
 }
 
 .space-eyebrow,
@@ -284,7 +296,7 @@ section[id] {
 .space-secondary:hover {
   border-color: var(--color-red);
   background: var(--color-red);
-  color: var(--color-white);
+  color: var(--color-paper);
   transform: translateY(-1px);
 }
 
@@ -432,10 +444,11 @@ section[id] {
   height: 100%;
   border: 1px solid var(--color-red);
   border-radius: 50%;
-  background: radial-gradient(circle at 36% 29%, var(--color-white), var(--color-red) 7%, var(--color-void-raised) 42%, var(--color-void) 72%);
+  background: radial-gradient(circle at 36% 29%, var(--color-red) 0 52%, var(--color-ink-soft) 78%, var(--color-ink) 100%);
   box-shadow:
     0 0 2.5rem var(--color-red-glow),
     inset 0 0 2.2rem var(--color-red-mid);
+  color: var(--color-paper);
   animation: core-breathe 3.6s ease-in-out infinite alternate;
 }
 
@@ -704,8 +717,9 @@ section[id] {
   height: 10rem;
   border: 1px solid var(--color-red);
   border-radius: 50%;
-  background: radial-gradient(circle at 38% 32%, var(--color-white), var(--color-red) 6%, var(--color-void-raised) 38%, var(--color-void) 73%);
+  background: radial-gradient(circle at 38% 32%, var(--color-red), var(--color-ink-soft) 24%, var(--color-ink) 73%);
   box-shadow: 0 0 2.2rem var(--color-red-glow);
+  color: var(--color-paper);
   text-align: center;
 }
 
@@ -1224,8 +1238,9 @@ section[id] {
   height: 9rem;
   border: 1px solid var(--color-red);
   border-radius: 50%;
-  background: radial-gradient(circle, var(--color-red-mid), var(--color-void-raised) 53%, var(--color-void) 72%);
+  background: radial-gradient(circle at 38% 30%, var(--color-red-mid), var(--color-ink-soft) 48%, var(--color-ink) 72%);
   box-shadow: 0 0 2rem var(--color-red-glow);
+  color: var(--color-paper);
   text-align: center;
   transform: translate(-50%, -50%);
 }
@@ -1235,8 +1250,8 @@ section[id] {
   height: 0.45rem;
   margin: 0 auto 0.45rem;
   border-radius: 50%;
-  background: var(--color-white);
-  box-shadow: 0 0 0.7rem var(--color-white-glow);
+  background: var(--color-red);
+  box-shadow: 0 0 0.7rem var(--color-red-glow);
 }
 
 .layer-core span,
@@ -1624,6 +1639,11 @@ section[id] {
   to { opacity: 0.48; transform: translate3d(0.2rem, -0.35rem, 0); }
 }
 
+@keyframes star-twinkle-soft {
+  from { opacity: 0.36; transform: translate3d(0, 0, 0); }
+  to { opacity: 0.68; transform: translate3d(-0.16rem, 0.24rem, 0); }
+}
+
 @keyframes core-breathe {
   from { transform: scale(0.97); }
   to { transform: scale(1.03); }
@@ -1882,6 +1902,7 @@ section[id] {
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
 
+  body::before,
   body::after,
   .hero-core,
   .hero-atom-runner,
@@ -1906,7 +1927,7 @@ section[id] {
   position: relative;
   z-index: 1;
   min-height: 100svh;
-  background: var(--color-void);
+  background: var(--color-transparent);
   color: var(--color-white);
 }
 
@@ -2101,7 +2122,7 @@ textarea:disabled {
 .product-button:not(:disabled):hover {
   border-color: var(--color-red);
   background: var(--color-red);
-  color: var(--color-white);
+  color: var(--color-paper);
 }
 
 .auth-text-link {
@@ -3251,4 +3272,35 @@ textarea:disabled {
   .product-sidebar nav a {
     transition: none;
   }
+}
+
+/* Ink cards on the cream spatial canvas */
+.constellation-detail,
+.constellation-static article,
+.layer-static article,
+.layer-face,
+.space-protocol-card,
+.booking-calendar,
+.auth-panel,
+.kpi-card,
+.product-empty,
+.product-panel,
+.settings-grid > div,
+.agent-console,
+.client-table-shell,
+.configuration-head,
+.configuration-form fieldset,
+.configuration-actions {
+  --color-void: var(--color-ink-soft);
+  --color-void-raised: var(--color-card-dark);
+  --color-void-soft: var(--color-ink-soft);
+  --color-white: var(--color-on-dark);
+  --color-white-soft: var(--color-on-dark-soft);
+  --color-white-dim: var(--color-on-dark-dim);
+  --color-rule: var(--color-dark-rule);
+  --color-rule-soft: var(--color-dark-rule);
+  --color-rule-faint: var(--color-dark-rule-faint);
+  border-color: var(--color-dark-rule);
+  background-color: var(--color-card-dark);
+  color: var(--color-on-dark);
 }

@@ -6,11 +6,12 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # DESIGN CONSTRAINTS (non-negotiable)
 
-- The active visual direction is a dark, spatial operating system. The whole page may use the void palette; the old light blueprint direction is retired.
-- Palette: void `#050507`, void-raised `#0E0E10`, void-soft `#17171C`, white `#F6F5F1`, white-soft `#C2C2C6`, white-dim `#AFAFB5`, rule `#2A2A2E`. Red `#E6172A` is the ONLY accent.
-- No gold, purple, blue, cyan, or multicolor accents. Stars, highlights, and light effects may only be white or red.
-- No gradients on text or buttons. Environmental gradients are allowed only to create restrained space depth. Controlled white/red glow is allowed on stars, orbit lines, and the central system core—not on ordinary cards, copy, or buttons.
-- A limited white/red star field is part of the design. Keep it sparse and render it with CSS backgrounds or a small fixed set of elements; never create hundreds of DOM particles.
+- The active visual direction is a light, spatial operating system on cream paper. Full-page black sections are retired.
+- Palette: paper `#F6F5F1`, paper-soft `#ECEAE3`, ink `#0E0E10`, ink-soft `#2A2A2E`, ink-mid `#5A5A60`, rule `#C2BFB6`. Red `#E6172A` is the ONLY accent.
+- No gold, purple, blue, cyan, or multicolor accents. Stars and environmental highlights may only be black or red.
+- No gradients on text or buttons. Environmental gradients are allowed only to create restrained spatial depth. Controlled red glow is allowed on stars, orbit lines, and the central system core—not on ordinary cards, copy, or buttons.
+- A limited black/red flickering star field is part of the design. Keep it sparse and render it with CSS backgrounds or a small fixed set of elements; never create hundreds of DOM particles.
+- The primary page canvas stays cream. Cards, contained panels, buttons, and system cores may use ink with cream text for deliberate contrast; do not use white cards on cream.
 - Square corners. `border-radius: 0` everywhere except circular stars, status dots, orbit rings, and the central system core.
 - Fonts: Saira (display, uppercase), Inter (body, weight 300), JetBrains Mono (eyebrows, tags, nav links, labels, tickers — uppercase, wide letter-spacing). No other fonts.
 - Motion: `0.2s` hovers on `cubic-bezier(0.2, 0.8, 0.2, 1)`. Scroll-linked 3D transforms and opacity are allowed for the constellation and operating-layer journey. Avoid generic long fades.
