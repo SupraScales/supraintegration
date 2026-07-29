@@ -28,12 +28,17 @@ connected until those services are actually configured.
   production build on every pull request. The signed-in authorization matrix is
   wired into the same workflow but stays dormant until a staging Supabase project
   and its credentials exist, so it has not yet verified anything in CI.
+- A machine-readable scope and fulfillment truth layer: contracts, versioned
+  scopes, deliverables, acceptance criteria, dependencies, evidence, questions,
+  decisions, and traceable source references with an authority hierarchy. See
+  `docs/phase-1-scope-truth.md`.
 
 ## Required production setup
 
 1. Create or select the Supra Integration Supabase project.
-2. Apply, in order, `supabase/migrations/202607280001_hermes_foundation.sql` and
-   `supabase/migrations/202607280002_agent_message_role.sql`.
+2. Apply, in order, `supabase/migrations/202607280001_hermes_foundation.sql`,
+   `supabase/migrations/202607280002_agent_message_role.sql`, and
+   `supabase/migrations/202607290003_scope_truth_layer.sql`.
 3. In Vercel, add:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
@@ -149,6 +154,17 @@ internal-signal layer. It is deliberately **not** a live client-facing autonomou
 autonomous external client communication, or autonomous production deployment. The
 internal Client Manager works for Supra: agent findings default to internal-only
 visibility and require explicit human approval before anything becomes client-visible.
+
+Delivered so far:
+
+| Slice | Migration | What it establishes |
+|---|---|---|
+| 1A | `202607280002` | Agent message authorship: a client cannot author a turn that reads as if Hermes produced it. Plus the CI verification gates. |
+| 1B | `202607290003` | The scope and fulfillment truth layer — what was sold, promised, proven, and still unknown. `docs/phase-1-scope-truth.md`. |
+
+Both slices apply the same three rules: agent output defaults to internal, a human
+must approve anything client-visible, and the database — not the UI — is where that is
+enforced.
 
 ## Recommended next phase
 
