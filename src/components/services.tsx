@@ -17,6 +17,11 @@ type System = {
   description: string;
   outcome: string;
   tags: string[];
+  problem: string;
+  installed: string;
+  human: string;
+  autonomous: string;
+  dashboard: string;
   x: string;
   y: string;
   angle: number;
@@ -26,10 +31,15 @@ const systems: System[] = [
   {
     number: "01",
     label: "Capture",
-    title: "AI Receptionist",
-    description: "Answers calls and messages, qualifies the lead, handles common questions, and books the next step.",
-    outcome: "Fewer inquiries die after hours or between tasks.",
-    tags: ["Calls", "SMS", "Booking"],
+    title: "Autonomous Front Office",
+    description: "Calls, inquiries, scheduling, routing, and follow-up working as one controlled system.",
+    outcome: "Every inquiry is recorded and given a clear next action.",
+    tags: ["Calls", "Intake", "Scheduling", "AI receptionist"],
+    problem: "Missed or inconsistently handled inquiries.",
+    installed: "Intake, qualification, routing, scheduling, escalation, and conversation logging.",
+    human: "Complex, sensitive, and high-value conversations.",
+    autonomous: "Routine intake, after-hours capture, reminders, and CRM updates.",
+    dashboard: "Calls, outcomes, response time, appointments, and open handoffs.",
     x: "-31vw",
     y: "-21vh",
     angle: 214,
@@ -38,9 +48,14 @@ const systems: System[] = [
     number: "02",
     label: "Outbound",
     title: "AI Outreach Agent",
-    description: "Builds approved lists, sends outreach, tracks every touch, and keeps the follow-up cadence moving.",
-    outcome: "Outbound no longer depends on someone remembering a spreadsheet.",
-    tags: ["Lists", "Email", "DMs"],
+    description: "Structured outbound conversations that keep human approval and oversight in the loop.",
+    outcome: "Outbound becomes an organized, visible process instead of an unattended spreadsheet.",
+    tags: ["SMS", "Email", "Qualification"],
+    problem: "Dormant databases and approved lead lists receive inconsistent follow-up.",
+    installed: "Messaging rules, campaign cadences, suppression controls, classification, and routing.",
+    human: "Approve messaging and handle interested or complex responses.",
+    autonomous: "Send scheduled touches, classify replies, create tasks, and route opportunities.",
+    dashboard: "Touches, replies, interest, suppressions, appointments, and human escalations.",
     x: "-9vw",
     y: "-31vh",
     angle: 254,
@@ -48,54 +63,79 @@ const systems: System[] = [
   {
     number: "03",
     label: "Recovery",
-    title: "Lead Nurture",
-    description: "Re-engages leads that did not answer, did not book, or went cold with approved multi-touch follow-up.",
-    outcome: "Every open lead has a next action instead of disappearing.",
-    tags: ["SMS", "Email", "Pipeline"],
+    title: "Lead Nurture + Conversion",
+    description: "A measurable conversion system that gives every opportunity the right next action.",
+    outcome: "Open opportunities keep moving until they convert, decline, or require a human decision.",
+    tags: ["Speed to lead", "Quotes", "No-shows"],
+    problem: "Good leads disappear after the first call, missed appointment, or open quote.",
+    installed: "Speed-to-lead, reminders, callbacks, quote chase, no-show recovery, and long-term nurture.",
+    human: "Handle objections, pricing decisions, and high-intent conversations.",
+    autonomous: "Trigger timed next actions, reminders, recovery sequences, and handoff tasks.",
+    dashboard: "Pipeline age, follow-up status, appointments, quotes, and stalled opportunities.",
     x: "23vw",
     y: "-25vh",
     angle: 306,
   },
   {
     number: "04",
-    label: "Attention",
-    title: "Content + Social Team",
-    description: "Plans content, edits short-form video, manages publishing, and records which hooks earn real response.",
-    outcome: "Content becomes a repeatable testing system, not random posting.",
-    tags: ["Strategy", "Editing", "Publishing"],
+    label: "Visibility",
+    title: "Revenue Operations",
+    description: "Connect the stages between lead source, first contact, appointment, quote, close, and review.",
+    outcome: "Leadership can see where revenue is moving and where it is getting stuck.",
+    tags: ["Attribution", "Pipeline", "KPIs"],
+    problem: "Revenue leaks between the ad, the call, the quote, and the next team handoff.",
+    installed: "Attribution, pipeline stages, ownership rules, conversion tracking, and exception alerts.",
+    human: "Close opportunities, set pricing, and resolve exceptions.",
+    autonomous: "Capture activity, assign tasks, update stages, and surface missed opportunities.",
+    dashboard: "Lead sources, conversion stages, call outcomes, quotes, ownership, and revenue indicators.",
     x: "33vw",
     y: "5vh",
     angle: 9,
   },
   {
     number: "05",
-    label: "Scale",
-    title: "Paid Growth + Search",
-    description: "Runs Meta ads, retargeting, local SEO, and search around proven offers with clean tracking.",
-    outcome: "Paid spend follows evidence instead of trying to create it.",
-    tags: ["Meta", "SEO", "Search"],
+    label: "Attention",
+    title: "Content + Social Team",
+    description: "Turn company knowledge, proof, and daily operations into a consistent market presence.",
+    outcome: "Content becomes a managed demand system instead of random posting.",
+    tags: ["Planning", "Repurposing", "Approval"],
+    problem: "The company creates useful stories and proof every day, but rarely captures or distributes them consistently.",
+    installed: "Input capture, planning, drafting, repurposing, approval, distribution, and performance tracking.",
+    human: "Protect the company voice, approve sensitive content, and contribute real expertise.",
+    autonomous: "Organize inputs, produce drafts, route approvals, repurpose assets, and schedule configured work.",
+    dashboard: "Content queue, approvals, publishing status, performance, and demand contribution.",
     x: "18vw",
     y: "29vh",
     angle: 57,
   },
   {
     number: "06",
-    label: "Flow",
-    title: "Revenue Operations",
-    description: "Keeps CRM stages, quotes, reminders, handoffs, reporting, invoices, and review requests moving.",
-    outcome: "The front and back end can carry more demand without breaking.",
-    tags: ["CRM", "Handoffs", "Reporting"],
+    label: "Control",
+    title: "Founder Offload",
+    description: "Move recurring decisions, follow-up, reporting, and team coordination out of the owner’s head.",
+    outcome: "Important work moves without the founder carrying every reminder and handoff.",
+    tags: ["SOPs", "Delegation", "Escalation"],
+    problem: "The owner remains the memory, task manager, and escalation point for daily work.",
+    installed: "SOPs, role ownership, priority queues, approval routing, escalation logic, and weekly reporting.",
+    human: "Lead strategy, hiring, relationships, and true exceptions.",
+    autonomous: "Route recurring work, assemble reports, monitor deadlines, and surface exceptions.",
+    dashboard: "Open tasks, owners, overdue work, approvals, exceptions, and weekly priorities.",
     x: "-13vw",
     y: "31vh",
     angle: 113,
   },
   {
     number: "07",
-    label: "Control",
-    title: "SOP + Founder Offload",
-    description: "Turns the work into checklists, async updates, delegation rules, guardrails, and account alerts.",
-    outcome: "The team runs day-to-day work without constant owner intervention.",
-    tags: ["SOPs", "Delegation", "Guardrails"],
+    label: "Foundation",
+    title: "Scale + Transferability",
+    description: "Create repeatable processes, organized data, role clarity, and management visibility.",
+    outcome: "The business becomes less owner-dependent and better prepared for responsible growth or future transition.",
+    tags: ["Standards", "Reporting", "Role clarity"],
+    problem: "Growth becomes inconsistent when every location, employee, or decision follows a different process.",
+    installed: "Documented workflows, centralized data, management reporting, location standards, and role clarity.",
+    human: "Set direction, develop leaders, and make strategic decisions.",
+    autonomous: "Run repeatable workflows, monitor consistency, and alert the team to exceptions.",
+    dashboard: "Role ownership, location performance, process status, management signals, and system health.",
     x: "-34vw",
     y: "13vh",
     angle: 158,
@@ -159,6 +199,13 @@ function SystemDetail({ system, index, progress }: { system: System; index: numb
       <h3>{system.title}</h3>
       <p>{system.description}</p>
       <div className="constellation-tags">{system.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
+      <div className="constellation-brief">
+        <div><b>Problem</b><span>{system.problem}</span></div>
+        <div><b>Installed system</b><span>{system.installed}</span></div>
+        <div><b>Human role</b><span>{system.human}</span></div>
+        <div><b>Autonomous role</b><span>{system.autonomous}</span></div>
+        <div><b>Dashboard</b><span>{system.dashboard}</span></div>
+      </div>
       <div className="constellation-outcome"><b>System outcome</b><span>{system.outcome}</span></div>
     </motion.article>
   );
@@ -180,9 +227,9 @@ export function Services() {
     return (
       <section id="agents" className="constellation-static">
         <div className="space-section-heading">
-          <p className="space-eyebrow"><span aria-hidden />Seven connected systems</p>
-          <h2>Your growth team, deployed as <span>one constellation.</span></h2>
-          <p>Each system has a job. Together they move demand from first attention through delivery and retention.</p>
+          <p className="space-eyebrow"><span aria-hidden />One command center / seven connected modules</p>
+          <h2>One operating environment. <span>Built around your business.</span></h2>
+          <p>The command center connects each module from first contact through daily operations and management visibility.</p>
         </div>
         <div className="constellation-static-grid">
           {systems.map((system) => (
@@ -190,6 +237,13 @@ export function Services() {
               <b>SYS_{system.number} / {system.label}</b>
               <h3>{system.title}</h3>
               <p>{system.description}</p>
+              <div className="constellation-static-brief">
+                <p><b>Problem</b>{system.problem}</p>
+                <p><b>Installed system</b>{system.installed}</p>
+                <p><b>Human role</b>{system.human}</p>
+                <p><b>Autonomous role</b>{system.autonomous}</p>
+                <p><b>Dashboard</b>{system.dashboard}</p>
+              </div>
               <span>{system.outcome}</span>
             </article>
           ))}
@@ -202,11 +256,11 @@ export function Services() {
     <section id="agents" ref={sceneRef} className="constellation-journey">
       <div className="constellation-sticky">
         <div className="constellation-heading">
-          <p className="space-eyebrow"><span aria-hidden />Scroll / system constellation</p>
-          <h2>Every system has a job. <span>Together, they move revenue.</span></h2>
+          <p className="space-eyebrow"><span aria-hidden />Scroll / connected operating modules</p>
+          <h2>Seven modules. <span>One command center.</span></h2>
         </div>
 
-        <div className="constellation-viewport" aria-label="Seven connected growth systems">
+        <div className="constellation-viewport" aria-label="Seven modules connected to the business command center">
           <motion.div className="constellation-orbit" style={{ rotate: orbitRotate }}>
             {systems.map((system) => (
               <i
@@ -218,8 +272,8 @@ export function Services() {
             ))}
             <motion.div className="constellation-core" style={{ scale: coreScale, opacity: coreOpacity }}>
               <i aria-hidden />
-              <span>SUPRA</span>
-              <b>CORE</b>
+              <span>Business</span>
+              <b>Command Center</b>
             </motion.div>
             {systems.map((system, index) => (
               <SystemNode key={system.number} system={system} index={index} progress={scrollYProgress} />

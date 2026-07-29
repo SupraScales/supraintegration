@@ -24,22 +24,22 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Supra Integration — Growth Systems for Small Business",
+  title: "Supra Integration — Autonomous Business Systems",
   description:
-    "Supra Integration finds where revenue leaks and installs the agents, marketing systems, and operating procedures that close the gaps.",
+    "Supra designs and installs connected business systems for lead response, follow-up, operations, reporting, and owner-independent execution.",
   openGraph: {
-    title: "Supra Integration — Growth Systems for Small Business",
+    title: "Supra Integration — Autonomous Business Systems",
     description:
-      "Agents, marketing systems, and operating procedures built around the places revenue leaks.",
+      "Connect lead response, follow-up, operations, reporting, and team accountability in one custom business command center.",
     url: "https://supraintegration.ai",
     siteName: "Supra Integration",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Supra Integration — Growth Systems for Small Business",
+    title: "Supra Integration — Autonomous Business Systems",
     description:
-      "Agents, marketing systems, and operating procedures built around the places revenue leaks.",
+      "Connected business systems for revenue operations, management visibility, and less owner-dependent execution.",
   },
 };
 

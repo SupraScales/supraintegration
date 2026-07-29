@@ -2,24 +2,24 @@ import { FadeIn } from "./motion";
 
 const protocols = [
   {
-    vector: "Lead generation",
-    protocols: ["Organic concept testing", "Outbound tracking", "DM qualification"],
-    signal: "Demand is visible",
+    vector: "Lead handling",
+    protocols: ["Intake standards", "Routing ownership", "Follow-up rules"],
+    signal: "Every opportunity has an owner",
   },
   {
-    vector: "Sales + booking",
-    protocols: ["Conversation scripts", "Qualification rules", "No-response nurture"],
-    signal: "Every lead has a next action",
+    vector: "Conversion control",
+    protocols: ["Pipeline definitions", "Quote recovery", "Exception alerts"],
+    signal: "Stalled revenue becomes visible",
   },
   {
-    vector: "Fulfillment + retention",
-    protocols: ["Onboarding milestones", "Delivery guardrails", "Account health alerts"],
-    signal: "Problems surface early",
+    vector: "Operational delivery",
+    protocols: ["Documented workflows", "Role handoffs", "Location standards"],
+    signal: "The work becomes repeatable",
   },
   {
-    vector: "Leadership + team",
-    protocols: ["Weekly time audit", "Async updates", "Delegation playbooks"],
-    signal: "Work moves without the founder",
+    vector: "Management visibility",
+    protocols: ["Weekly reporting", "Priority queues", "Delegation controls"],
+    signal: "Leadership sees the exceptions",
   },
 ];
 
@@ -27,11 +27,13 @@ export function Protocols() {
   return (
     <section id="protocols" className="space-protocols">
       <div className="space-section-heading">
-        <p className="space-eyebrow"><span aria-hidden />Mission protocols</p>
-        <h2>The system stays useful when the week gets <span>messy.</span></h2>
+        <p className="space-eyebrow"><span aria-hidden />Scale and transferability</p>
+        <h2>Systems that make the business <span>less owner-dependent.</span></h2>
         <p>
-          Every handoff gets a rule, an owner, and a visible signal. New demand can
-          move through the business without pulling the founder into every decision.
+          A business becomes easier to scale—and potentially easier to
+          transfer—when the process is documented, the data is organized,
+          performance is visible, and daily execution does not depend entirely
+          on the founder.
         </p>
       </div>
 

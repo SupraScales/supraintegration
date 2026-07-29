@@ -1,4 +1,9 @@
-const serviceLinks = ["AI agents", "Growth marketing", "Revenue operations", "SOPs"];
+const serviceLinks = [
+  "Business command center",
+  "Autonomous front office",
+  "Revenue operations",
+  "Founder offload",
+];
 
 export function Footer() {
   return (
@@ -6,13 +11,14 @@ export function Footer() {
       <div className="site-footer-main">
         <div className="footer-brand">
           <b>SUPRA<span>INTEGRATION</span></b>
-          <p>Growth systems for small businesses that need more output without more chaos.</p>
+          <p>Connected business systems that make revenue, operations, and team ownership easier to see and manage.</p>
         </div>
         <div>
           <h3>Navigate</h3>
-          <a href="#agents">Agents</a>
-          <a href="#system">System</a>
-          <a href="#protocols">SOPs</a>
+          <a href="#command">Command center</a>
+          <a href="#agents">Modules</a>
+          <a href="#flow">System flow</a>
+          <a href="#system">Process</a>
           <a href="#contact">Contact</a>
         </div>
         <div>

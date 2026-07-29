@@ -7,16 +7,17 @@ export function CTA() {
       <div className="booking-grid" aria-hidden />
       <div className="booking-inner">
         <FadeIn className="booking-copy">
-          <p className="section-kicker"><span className="status-dot" aria-hidden />15-minute systems audit</p>
-          <h2>Find the leak. Leave with the <span>first move.</span></h2>
+          <p className="section-kicker"><span className="status-dot" aria-hidden />15-minute operating systems audit</p>
+          <h2>Map the system. Find the <span>first move.</span></h2>
           <p className="booking-intro">
-            We will look at how attention becomes a booked call, how follow-up
-            works, and where delivery still depends on you.
+            We will map the current lead flow, front-office process, follow-up,
+            reporting, and owner-dependent work—then identify the
+            highest-impact system to build first.
           </p>
           <ol className="booking-list">
-            <li><b>01</b><span>Walk through acquisition and follow-up</span></li>
-            <li><b>02</b><span>Identify the clearest operating constraint</span></li>
-            <li><b>03</b><span>Map the first agent or system to install</span></li>
+            <li><b>01</b><span>Walk through lead flow and front-office handling</span></li>
+            <li><b>02</b><span>Find the clearest revenue or operating constraint</span></li>
+            <li><b>03</b><span>Map the first connected system to install</span></li>
             <li><b>04</b><span>Get an honest fit assessment</span></li>
           </ol>
           <p className="booking-note">No pitch deck. No guaranteed outcomes. Just a direct look at the system.</p>
