@@ -1,4 +1,4 @@
-const orbitLabels = ["Audit", "Prove", "Deploy", "Operate"];
+const orbitLabels = ["Audit", "Design", "Deploy", "Operate"];
 
 export function Hero() {
   return (
@@ -42,17 +42,18 @@ export function Hero() {
       </div>
 
       <div className="space-hero-copy">
-        <p className="space-eyebrow"><span aria-hidden />Business growth / fully connected</p>
+        <p className="space-eyebrow"><span aria-hidden />Business systems / fully connected</p>
         <h1 id="hero-title">
-          One system to find demand, close leads, and <span>run the work.</span>
+          Install the operating system <span>your business is missing.</span>
         </h1>
         <p className="space-hero-body">
-          We find where revenue escapes, then install the agents, marketing,
-          follow-up, and operating systems that close the gaps.
+          Supra connects your leads, communication, follow-up, front office,
+          reporting, and team workflows into one autonomous system—managed
+          through a custom business command center.
         </p>
         <div className="space-hero-actions">
-          <a className="space-primary" href="#contact">Book a systems audit <span aria-hidden>→</span></a>
-          <a className="space-secondary" href="#agents">Enter the system <span aria-hidden>↓</span></a>
+          <a className="space-primary" href="#contact">Map your operating system <span aria-hidden>→</span></a>
+          <a className="space-secondary" href="#command">See the command center <span aria-hidden>↓</span></a>
         </div>
       </div>
 
@@ -60,7 +61,7 @@ export function Hero() {
         <span>SLT / 40.7608° N</span>
         <span>System status / online</span>
       </div>
-      <a className="hero-scroll-cue" href="#agents">
+      <a className="hero-scroll-cue" href="#command">
         <span>Scroll to expand</span><i aria-hidden />
       </a>
     </section>

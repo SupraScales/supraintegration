@@ -16,28 +16,28 @@ const layers = [
     label: "Audit",
     title: "Find the constraint",
     body: "Trace demand, sales, fulfillment, and retention. Find the exact handoff where leads stall, customers drop, or the owner gets pulled back in.",
-    output: "A clear order of operations",
+    output: "A clear system priority",
   },
   {
     number: "02",
-    label: "Prove",
-    title: "Test before scaling",
-    body: "Put offers, hooks, and content in front of the market at low cost. Record the response and keep what earns attention and action.",
-    output: "Evidence for what to scale",
+    label: "Design",
+    title: "Design around reality",
+    body: "Choose the architecture, automation rules, integrations, dashboard, ownership, and human handoffs around the way the company actually works.",
+    output: "A company-specific system blueprint",
   },
   {
     number: "03",
     label: "Deploy",
-    title: "Connect the revenue path",
-    body: "Install calls, DMs, outreach, sales video, booking, CRM, nurture, and reporting as one coordinated system.",
-    output: "Fewer manual handoffs",
+    title: "Install and test",
+    body: "Connect the tools, build the workflows, test failure cases, document the process, and train the people who will operate it.",
+    output: "A working system the team can use",
   },
   {
     number: "04",
     label: "Operate",
-    title: "Make the work repeatable",
-    body: "Add simple SOPs, ownership rules, health alerts, async updates, and management visibility so the team can run it.",
-    output: "Less founder dependence",
+    title: "Monitor and improve",
+    body: "Watch performance, resolve failures, refine the handoffs, and add the next module only when the operation justifies it.",
+    output: "A system that stays useful",
   },
 ];
 
@@ -89,7 +89,7 @@ export function Approach() {
       <section id="system" className="layer-static">
         <div className="space-section-heading">
           <p className="space-eyebrow"><span aria-hidden />How the system is built</p>
-          <h2>Four layers. One <span>operating system.</span></h2>
+          <h2>Audit. Design. Deploy. <span>Operate.</span></h2>
         </div>
         <div className="layer-static-grid">
           {layers.map((layer) => (
@@ -110,8 +110,8 @@ export function Approach() {
       <div className="layer-sticky">
         <div className="layer-heading">
           <p className="space-eyebrow"><span aria-hidden />Scroll / operating orbit</p>
-          <h2>Random tactics become one <span>operating system.</span></h2>
-          <p>Each layer turns toward you in the order it has to be built.</p>
+          <h2>We do not drop software <span>on your team.</span></h2>
+          <p>We build around the way the business actually operates.</p>
         </div>
 
         <div className="layer-detail-stack">

@@ -4,9 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 const links = [
-  { href: "#agents", label: "Agents" },
-  { href: "#system", label: "System" },
-  { href: "#protocols", label: "SOPs" },
+  { href: "#command", label: "Command center" },
+  { href: "#agents", label: "Modules" },
+  { href: "#system", label: "Process" },
 ];
 
 export function Header() {
@@ -63,7 +63,7 @@ export function Header() {
             <span aria-hidden />
             Client login
           </Link>
-          <a className="space-nav-cta" href="#contact">Book an audit</a>
+          <a className="space-nav-cta" href="#contact">Start systems audit</a>
         </div>
 
         <button
@@ -82,7 +82,7 @@ export function Header() {
             <a key={link.href} href={link.href} onClick={() => setOpen(false)}>{link.label}</a>
           ))}
           <Link href="/login" onClick={() => setOpen(false)}>Client login</Link>
-          <a href="#contact" onClick={() => setOpen(false)}>Book an audit</a>
+          <a href="#contact" onClick={() => setOpen(false)}>Start systems audit</a>
         </div>
       )}
     </header>

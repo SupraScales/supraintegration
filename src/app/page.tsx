@@ -1,6 +1,8 @@
 import { Header } from "@/components/header";
 import { Hero } from "@/components/hero";
+import { CommandCenter } from "@/components/command-center";
 import { Services } from "@/components/services";
+import { SystemFlow } from "@/components/system-flow";
 import { Approach } from "@/components/approach";
 import { TrustStrip } from "@/components/trust-strip";
 import { CTA } from "@/components/cta";
@@ -13,7 +15,9 @@ export default function Home() {
       <Header />
       <main>
         <Hero />
+        <CommandCenter />
         <Services />
+        <SystemFlow />
         <Approach />
         <Protocols />
         <TrustStrip />

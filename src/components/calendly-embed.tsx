@@ -38,8 +38,8 @@ export function CalendlyEmbed() {
     }
 
     const url = new URL(CALENDLY_URL);
-    url.searchParams.set("background_color", readColorToken("--color-void"));
-    url.searchParams.set("text_color", readColorToken("--color-white"));
+    url.searchParams.set("background_color", readColorToken("--color-card-dark"));
+    url.searchParams.set("text_color", readColorToken("--color-on-dark"));
     url.searchParams.set("primary_color", readColorToken("--color-red"));
     url.searchParams.set("hide_gdpr_banner", "1");
 
