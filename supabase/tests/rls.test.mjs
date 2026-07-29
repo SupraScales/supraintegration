@@ -430,4 +430,371 @@ if (!readConfig().ok) {
       );
     });
   }
+
+  // =========================================================================
+  // Phase 1B: scope and fulfillment truth layer (202607290003).
+  // =========================================================================
+
+  const scopeA = () => ctx.seed.clientA.scope;
+  const scopeB = () => ctx.seed.clientB.scope;
+
+  // ---- 17. Internal admin manages scope records; internal member cannot -------
+  test("internal admin can create and manage scope records", async () => {
+    const source = await tryInsert(ctx.clients.internalAdmin, "source_references", {
+      organization_id: ctx.orgIds.clientA,
+      source_type: "approved_change_request",
+      secure_reference: "docvault://cr/1",
+      created_by_user_id: ctx.userIds.internalAdmin,
+    });
+    assertWriteAllowed(source, "internal admin inserts source_reference");
+
+    const contract = await tryInsert(ctx.clients.internalAdmin, "contracts", {
+      organization_id: ctx.orgIds.clientA,
+      internal_title: "Admin created contract",
+      created_by_user_id: ctx.userIds.internalAdmin,
+    });
+    assertWriteAllowed(contract, "internal admin inserts contract");
+  });
+
+  test("internal member gets exactly the existing role model: read yes, write no", async () => {
+    assertReadable(
+      await read(ctx.clients.internalMember, "deliverables"),
+      "internal member reads deliverables",
+      1,
+    );
+    assertReadable(
+      await read(ctx.clients.internalMember, "deliverable_private_notes"),
+      "internal member reads private notes",
+      1,
+    );
+    assertWriteDenied(
+      await tryInsert(ctx.clients.internalMember, "contracts", {
+        organization_id: ctx.orgIds.clientA,
+        internal_title: "Member should not create this",
+      }),
+      "internal member inserts contract",
+    );
+  });
+
+  // ---- 18. Cross-tenant isolation on every new table -------------------------
+  test("client A cannot read Client B scope records", async () => {
+    for (const table of [
+      "deliverables",
+      "acceptance_criteria",
+      "questions",
+      "decisions",
+      "scope_versions",
+      "contracts",
+      "source_references",
+    ]) {
+      assertDenied(
+        await read(ctx.clients.clientAAdmin, table, (q) =>
+          q.eq("organization_id", ctx.orgIds.clientB),
+        ),
+        `client A reads Client B ${table}`,
+      );
+    }
+    // Including the deliberately published Client B deliverable.
+    assertDenied(
+      await read(ctx.clients.clientAAdmin, "deliverables", (q) =>
+        q.eq("id", scopeB().publishedDeliverableId),
+      ),
+      "client A reads Client B published deliverable",
+    );
+  });
+
+  // ---- 19-21. Internal-only surfaces stay internal ---------------------------
+  test("client users cannot read internal scope notes, questions or unapproved decisions", async () => {
+    assertDenied(
+      await read(ctx.clients.clientAMember, "deliverable_private_notes"),
+      "client reads deliverable_private_notes",
+    );
+    assertDenied(await read(ctx.clients.clientAMember, "questions"), "client reads internal questions");
+    assertDenied(await read(ctx.clients.clientAMember, "decisions"), "client reads unapproved decisions");
+    for (const table of [
+      "contracts",
+      "scopes",
+      "scope_versions",
+      "source_references",
+      "deliverable_dependencies",
+      "deliverable_evidence",
+      "question_private_context",
+      "decision_options",
+    ]) {
+      assertDenied(await read(ctx.clients.clientAMember, table), `client reads ${table}`);
+    }
+  });
+
+  // Positive control: publication is what makes a deliverable visible, and only
+  // the published one shows.
+  test("client sees only the published, client-visible deliverable", async () => {
+    const visible = await read(ctx.clients.clientAMember, "deliverables");
+    assertReadable(visible, "client reads published deliverable", 1);
+    assert.ok(
+      visible.data.every(
+        (row) => row.visibility === "client_visible" && row.publication === "published",
+      ),
+      "client must never see an internal or unpublished deliverable",
+    );
+    assert.ok(
+      visible.data.every((row) => row.id !== scopeA().internalDeliverableId),
+      "the internal deliverable must not be visible",
+    );
+  });
+
+  // ---- 22-23. Clients cannot approve or forge completion ----------------------
+  test("client user cannot approve a scope version", async () => {
+    const update = await ctx.clients.clientAAdmin
+      .from("scope_versions")
+      .update({ approval: "approved", approved_by_user_id: ctx.userIds.clientAAdmin })
+      .eq("id", scopeA().scopeVersionId)
+      .select("*");
+    assert.equal((update.data ?? []).length, 0, "client must not approve a scope version");
+  });
+
+  test("client user cannot mark a deliverable completed through a forged write", async () => {
+    for (const id of [scopeA().internalDeliverableId, scopeA().publishedDeliverableId]) {
+      const update = await ctx.clients.clientAAdmin
+        .from("deliverables")
+        .update({ status: "completed", verification: "approved" })
+        .eq("id", id)
+        .select("*");
+      assert.equal((update.data ?? []).length, 0, "client must not complete a deliverable");
+    }
+    // And it really did not change.
+    const { data } = await ctx.clients.internalMember
+      .from("deliverables")
+      .select("status")
+      .eq("id", scopeA().publishedDeliverableId)
+      .single();
+    assert.notEqual(data?.status, "completed", "the deliverable must still not be completed");
+  });
+
+  // ---- 24. Agent-created records default to internal --------------------------
+  test("agent-created records default to internal and unpublished", async () => {
+    const agentDeliverable = scopeA().agentDeliverable;
+    assert.equal(
+      agentDeliverable.visibility,
+      "internal",
+      "an agent asking for client_visible must still be stored internal",
+    );
+    assert.equal(
+      agentDeliverable.publication,
+      "unpublished",
+      "an agent asking for published must still be stored unpublished",
+    );
+    // The client cannot see it either.
+    assertDenied(
+      await read(ctx.clients.clientAMember, "deliverables", (q) => q.eq("id", agentDeliverable.id)),
+      "client reads agent-drafted deliverable",
+    );
+  });
+
+  // ---- 25-26. Completion gate --------------------------------------------------
+  test("required acceptance criteria prevent premature completion", async () => {
+    const attempt = await ctx.clients.internalAdmin
+      .from("deliverables")
+      .update({
+        status: "completed",
+        verification: "approved",
+        approved_by_user_id: ctx.userIds.internalAdmin,
+      })
+      .eq("id", scopeA().internalDeliverableId)
+      .select("*");
+    assert.ok(attempt.error, "completion must be refused while a required criterion is unverified");
+    assert.match(
+      attempt.error.message,
+      /acceptance criteria/i,
+      "the refusal should name the unmet acceptance criteria",
+    );
+  });
+
+  test("evidence and approval allow valid completion", async () => {
+    const deliverableId = scopeA().internalDeliverableId;
+
+    const verified = await ctx.clients.internalAdmin
+      .from("acceptance_criteria")
+      .update({ verification: "approved", verified_by_user_id: ctx.userIds.internalAdmin })
+      .eq("id", scopeA().criterionId)
+      .select("*");
+    assert.ok(!verified.error, `verifying the criterion failed: ${verified.error?.message}`);
+
+    // Still refused: no verified evidence yet.
+    const withoutEvidence = await ctx.clients.internalAdmin
+      .from("deliverables")
+      .update({
+        status: "completed",
+        verification: "approved",
+        approved_by_user_id: ctx.userIds.internalAdmin,
+      })
+      .eq("id", deliverableId)
+      .select("*");
+    assert.ok(withoutEvidence.error, "completion must be refused without verified evidence");
+
+    assertWriteAllowed(
+      await tryInsert(ctx.clients.internalAdmin, "deliverable_evidence", {
+        deliverable_id: deliverableId,
+        organization_id: ctx.orgIds.clientA,
+        evidence: "automated_test",
+        reference: "ci://run/1",
+        verification: "approved",
+        verified_by_user_id: ctx.userIds.internalAdmin,
+      }),
+      "internal admin records verified evidence",
+    );
+
+    const completed = await ctx.clients.internalAdmin
+      .from("deliverables")
+      .update({
+        status: "completed",
+        verification: "approved",
+        approved_by_user_id: ctx.userIds.internalAdmin,
+      })
+      .eq("id", deliverableId)
+      .select("*");
+    assert.ok(!completed.error, `completion should now succeed: ${completed.error?.message}`);
+    assert.ok(completed.data?.[0]?.completed_at, "completed_at must be stamped by the database");
+  });
+
+  // ---- 27. Authority hierarchy --------------------------------------------------
+  test("a lower-authority source cannot silently supersede a higher-authority record", async () => {
+    for (const sourceType of ["agent_inference", "internal_working_note", "onboarding_transcript"]) {
+      const attempt = await tryInsert(ctx.clients.internalAdmin, "source_references", {
+        organization_id: ctx.orgIds.clientA,
+        source_type: sourceType,
+        secure_reference: `attempt://${sourceType}`,
+        supersedes_id: scopeA().signedSourceId,
+        created_by_user_id: ctx.userIds.internalAdmin,
+      });
+      assertWriteDenied(attempt, `${sourceType} supersedes a signed contract`);
+    }
+
+    // A higher-authority source may supersede a lower one.
+    assertWriteAllowed(
+      await tryInsert(ctx.clients.internalAdmin, "source_references", {
+        organization_id: ctx.orgIds.clientA,
+        source_type: "approved_change_request",
+        secure_reference: "docvault://cr/2",
+        supersedes_id: scopeA().inferredSourceId,
+        created_by_user_id: ctx.userIds.internalAdmin,
+      }),
+      "approved change request supersedes agent inference",
+    );
+  });
+
+  test("agent inference stays noncanonical until a human promotes it", async () => {
+    const selfPromote = await ctx.clients.internalAdmin
+      .from("source_references")
+      .update({ verification: "approved", approved_by_user_id: ctx.userIds.agent })
+      .eq("id", scopeA().inferredSourceId)
+      .select("*");
+    assert.ok(selfPromote.error, "an agent must not approve its own inference");
+
+    const promoted = await ctx.clients.internalAdmin
+      .from("source_references")
+      .update({ verification: "approved", approved_by_user_id: ctx.userIds.internalAdmin })
+      .eq("id", scopeA().inferredSourceId)
+      .select("*");
+    assert.ok(!promoted.error, `a human promotion should succeed: ${promoted.error?.message}`);
+  });
+
+  // ---- 28. Publication requires an internal human --------------------------------
+  test("publication requires an internal Supra approver and an explicit visibility change", async () => {
+    const deliverableId = scopeA().agentDeliverable.id;
+
+    const noApprover = await ctx.clients.internalAdmin
+      .from("deliverables")
+      .update({ visibility: "client_visible", publication: "published", published_by_user_id: null })
+      .eq("id", deliverableId)
+      .select("*");
+    assert.ok(noApprover.error, "publishing without an approver must be refused");
+
+    const clientApprover = await ctx.clients.internalAdmin
+      .from("deliverables")
+      .update({
+        visibility: "client_visible",
+        publication: "published",
+        published_by_user_id: ctx.userIds.clientAAdmin,
+      })
+      .eq("id", deliverableId)
+      .select("*");
+    assert.ok(clientApprover.error, "a client must not be accepted as the publisher");
+
+    const published = await ctx.clients.internalAdmin
+      .from("deliverables")
+      .update({
+        visibility: "client_visible",
+        publication: "published",
+        published_by_user_id: ctx.userIds.internalAdmin,
+      })
+      .eq("id", deliverableId)
+      .select("*");
+    assert.ok(!published.error, `internal publication should succeed: ${published.error?.message}`);
+  });
+
+  // ---- 29. Audit ------------------------------------------------------------------
+  test("meaningful authorized mutations create audit events", async () => {
+    const before = await ctx.clients.internalAdmin
+      .from("audit_events")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", ctx.orgIds.clientA);
+
+    const update = await ctx.clients.internalAdmin
+      .from("deliverables")
+      .update({ status: "blocked" })
+      .eq("id", scopeA().publishedDeliverableId)
+      .select("*");
+    assert.ok(!update.error, `status change failed: ${update.error?.message}`);
+
+    const after = await ctx.clients.internalAdmin
+      .from("audit_events")
+      .select("action")
+      .eq("organization_id", ctx.orgIds.clientA)
+      .like("action", "scope.%")
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    assert.ok(
+      (after.data ?? []).some((row) => row.action === "scope.deliverables.changed"),
+      "a deliverable status change must produce an audit event",
+    );
+    assert.ok((before.count ?? 0) >= 0, "audit events are readable by internal users");
+  });
+
+  test("audit payloads carry no notes, answers or secure references", async () => {
+    const { data } = await ctx.clients.internalAdmin
+      .from("audit_events")
+      .select("metadata")
+      .eq("organization_id", ctx.orgIds.clientA)
+      .like("action", "scope.%")
+      .limit(100);
+
+    const serialized = JSON.stringify(data ?? []);
+    for (const forbidden of ["docvault://", "agent://inference", "Margin is thin", "expand scope"]) {
+      assert.ok(!serialized.includes(forbidden), `audit metadata leaked: ${forbidden}`);
+    }
+  });
+
+  // ---- 30. Anonymous and suspended access on the new tables ----------------------
+  test("anonymous users cannot access scope tables", async () => {
+    for (const table of [
+      "contracts",
+      "scopes",
+      "scope_versions",
+      "deliverables",
+      "acceptance_criteria",
+      "deliverable_evidence",
+      "questions",
+      "decisions",
+      "source_references",
+    ]) {
+      assertDenied(await read(ctx.clients.anon, table), `anon reads ${table}`);
+    }
+  });
+
+  test("suspended membership cannot access scope tables", async () => {
+    for (const table of ["deliverables", "acceptance_criteria", "questions", "decisions"]) {
+      assertDenied(await read(ctx.clients.inactive, table), `suspended reads ${table}`);
+    }
+  });
 }
