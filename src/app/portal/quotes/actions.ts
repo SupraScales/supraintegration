@@ -188,16 +188,20 @@ export async function saveQuotePricingAction(formData: FormData) {
 
   const { access, supabase, quote } = await requireQuote(parsed.data.quoteId);
 
+  // Expected entry mistakes come back as a readable message on the costs page.
+  const rejectPricing = (message: string) =>
+    redirect(`/portal/quotes/${quote.id}/costs?error=${encodeURIComponent(message)}`);
+
   if (parsed.data.pricingPercent !== null && percentToMilli(parsed.data.pricingPercent) === null) {
-    throw new Error("The percentage must be a number between 0 and 999.999.");
+    rejectPricing("Nothing was saved: the percentage must be a number between 0 and 999.999.");
   }
   const manualCents =
     parsed.data.manualFinalPrice === null ? null : toCents(parsed.data.manualFinalPrice);
   if (parsed.data.manualFinalPrice !== null && (manualCents === null || manualCents < 0)) {
-    throw new Error("The final price must be a valid dollar amount.");
+    rejectPricing("Nothing was saved: the final price must be a valid dollar amount, like 1250.00.");
   }
   if (manualCents !== null && !parsed.data.manualPriceReason) {
-    throw new Error("Entering a manual final price requires a reason.");
+    rejectPricing("Nothing was saved: entering a manual final price requires a reason.");
   }
 
   const { error } = await supabase

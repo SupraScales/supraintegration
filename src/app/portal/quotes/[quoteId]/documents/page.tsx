@@ -26,10 +26,13 @@ function formatSize(bytes: number): string {
 
 export default async function QuoteDocumentsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ quoteId: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const { quoteId } = await params;
+  const { error: uploadMessage } = await searchParams;
   const { supabase, quote } = await requireQuote(quoteId);
 
   const { data: documentData } = await supabase
@@ -49,6 +52,12 @@ export default async function QuoteDocumentsPage({
         title="Documents"
         description="Drawings, specifications, and customer files for this quote. Files that cannot be read automatically are kept for manual review."
       />
+
+      {uploadMessage ? (
+        <p className="form-message" role="alert">
+          {uploadMessage.slice(0, 300)}
+        </p>
+      ) : null}
 
       <form action={uploadQuoteDocumentAction} className="product-panel quote-form">
         <input type="hidden" name="quoteId" value={quote.id} />

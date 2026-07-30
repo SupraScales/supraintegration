@@ -203,3 +203,130 @@ test("materials without labor blocks approval until overridden", () => {
   assert.equal(result.canApprove, false);
   assert.equal(result.blockers[0].code, "labor_missing");
 });
+
+// ---- extraction evaluation harness -----------------------------------------
+import { evaluateExtraction, type ReferenceRow } from "./extraction/evaluate.ts";
+import type { ExtractionOutput } from "./extraction/schema.ts";
+
+function evalOutput(overrides: Partial<ExtractionOutput> = {}): ExtractionOutput {
+  return {
+    schema_version: "v1",
+    project_metadata: { project_name: null, customer_name: null },
+    drawing_metadata: { drawing_numbers: [], revisions: [] },
+    takeoff_items: [],
+    handrail_total_linear_feet: null,
+    ladder_total_linear_feet: null,
+    finish_requirements: null,
+    outside_vendor_needs: [],
+    missing_information: [],
+    warnings: [],
+    ...overrides,
+  };
+}
+
+function evalItem(
+  overrides: Partial<ExtractionOutput["takeoff_items"][number]> = {},
+): ExtractionOutput["takeoff_items"][number] {
+  return {
+    item_mark: null,
+    category: "structural_steel",
+    description: null,
+    material: null,
+    grade: null,
+    profile: null,
+    size: null,
+    thickness: null,
+    width: null,
+    length: null,
+    quantity: null,
+    unit: null,
+    unit_weight_lbs: null,
+    linear_feet: null,
+    holes: null,
+    cuts: null,
+    bends: null,
+    welding: null,
+    finish: null,
+    notes: null,
+    source_page: null,
+    drawing_number: null,
+    drawing_revision: null,
+    evidence: "test evidence",
+    confidence: "medium",
+    ...overrides,
+  };
+}
+
+function referenceRow(overrides: Partial<ReferenceRow> = {}): ReferenceRow {
+  return {
+    item_mark: null,
+    category: "structural_steel",
+    description: null,
+    material: null,
+    grade: null,
+    profile: null,
+    size: null,
+    quantity: null,
+    unit: null,
+    unit_weight_lbs: null,
+    total_weight_lbs: null,
+    linear_feet: null,
+    ...overrides,
+  };
+}
+
+test("evaluation matches rows by item mark and reports field differences", () => {
+  const report = evaluateExtraction(
+    evalOutput({
+      takeoff_items: [
+        evalItem({ item_mark: "B1", quantity: 4, unit_weight_lbs: 100, material: "Steel" }),
+        evalItem({ item_mark: "X9", category: "other", description: "not in reference" }),
+      ],
+    }),
+    [
+      referenceRow({ item_mark: "b1", quantity: 5, unit_weight_lbs: 100, material: "steel" }),
+      referenceRow({ item_mark: "HR1", category: "handrail", linear_feet: 42 }),
+    ],
+  );
+  assert.equal(report.matched.length, 1);
+  assert.equal(report.matched[0].itemMark, "B1");
+  // quantity 4 vs 5 differs; material matches case-insensitively.
+  assert.deepEqual(
+    report.matched[0].differences.map((diff) => diff.field),
+    ["quantity"],
+  );
+  assert.equal(report.missingRows.length, 1);
+  assert.equal(report.missingRows[0].item_mark, "HR1");
+  assert.equal(report.extraRows.length, 1);
+  assert.equal(report.extraRows[0].item_mark, "X9");
+});
+
+test("evaluation never treats unknown (null) values as disagreements", () => {
+  const report = evaluateExtraction(
+    evalOutput({ takeoff_items: [evalItem({ item_mark: "B1", grade: null })] }),
+    [referenceRow({ item_mark: "B1", grade: "A992" })],
+  );
+  assert.equal(report.matched[0].differences.length, 0);
+});
+
+test("evaluation compares weight and linear-feet totals only when both sides exist", () => {
+  const withBoth = evaluateExtraction(
+    evalOutput({
+      takeoff_items: [evalItem({ item_mark: "B1", quantity: 2, unit_weight_lbs: 50 })],
+      handrail_total_linear_feet: 40,
+    }),
+    [
+      referenceRow({ item_mark: "B1", total_weight_lbs: 120 }),
+      referenceRow({ item_mark: "HR1", category: "handrail", linear_feet: 42 }),
+    ],
+  );
+  assert.equal(withBoth.weightLbs.extracted, 100);
+  assert.equal(withBoth.weightLbs.confirmed, 120);
+  assert.equal(withBoth.weightLbs.difference, -20);
+  assert.equal(withBoth.handrailLinearFeet.difference, -2);
+
+  const unknownSide = evaluateExtraction(evalOutput(), [referenceRow({ item_mark: "B1" })]);
+  assert.equal(unknownSide.weightLbs.extracted, null);
+  assert.equal(unknownSide.weightLbs.difference, null);
+  assert.equal(unknownSide.ladderLinearFeet.difference, null);
+});

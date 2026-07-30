@@ -42,6 +42,13 @@ Portal (client roles only, module-gated):
 Hermes (internal roles only): `/hermes/clients/[clientId]/quoting` — pipeline
 counts, documents needing intervention, mock-run count, recent activity. Client
 documents and prices are not surfaced beyond what intervention requires.
+`/hermes/clients/[clientId]/extraction-eval` — internal evaluation harness:
+runs the configured provider against an uploaded document (internal admins
+only), records provider/model/prompt/schema/runtime per run, and compares the
+validated output against the human-confirmed takeoff (matched rows,
+field differences, missing/extra rows, weight and linear-feet deltas via
+`src/lib/quotes/extraction/evaluate.ts`). Eval runs never create takeoff rows
+or pricing, and mock output is labeled as not a real accuracy measurement.
 
 ## Permissions
 
@@ -82,7 +89,8 @@ data), then create the Alumasteel users in Supabase Auth and insert
 ## Document processing
 
 Flow: upload (validated: ≤25 MB, extension allow-list, sanitized filename,
-private bucket) → stored + `quote_documents` row → "Read document" action →
+private bucket; `next.config.ts` raises the server-action body limit to 26 MB
+so real drawings fit — Next's default is 1 MB) → stored + `quote_documents` row → "Read document" action →
 provider extract → **strict zod validation**
 (`src/lib/quotes/extraction/schema.ts`, version `v1`) → extraction run +
 takeoff rows + clarifications with evidence/confidence/provenance. Output that
@@ -153,7 +161,7 @@ never calculate. Platework stays manual-entry until Ryan's method is known.
 
 ## Replacing the provisional quote template
 
-`src/app/portal/quotes/[quoteId]/quote/print/template.tsx` is the only file to
+`src/app/portal/quotes/[quoteId]/quote/print/draft-template.tsx` is the only file to
 change when Ryan provides the real Word template. Its props are the data
 contract (quote project, version snapshot, customer). The current output is
 watermarked DRAFT and is explicitly not Alumasteel's approved format. PDF is

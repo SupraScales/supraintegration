@@ -11,10 +11,13 @@ import { addCostLineAction, deleteCostLineAction, pullVendorCostsAction } from "
 
 export default async function QuoteCostsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ quoteId: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const { quoteId } = await params;
+  const { error: pricingMessage } = await searchParams;
   const { supabase, quote } = await requireQuote(quoteId);
 
   const [{ data: lineData }, { totals }, { data: laborRuleData }] = await Promise.all([
@@ -43,6 +46,12 @@ export default async function QuoteCostsPage({
         title="Labor and costs"
         description="Every dollar in this quote is entered or calculated here, and every total is traceable to its lines."
       />
+
+      {pricingMessage ? (
+        <p className="form-message" role="alert">
+          {pricingMessage.slice(0, 300)}
+        </p>
+      ) : null}
 
       <div className="quote-summary-row">
         <article className="product-panel">

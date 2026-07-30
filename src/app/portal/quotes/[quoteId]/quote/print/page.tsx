@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireQuote } from "@/lib/quotes/data";
-import { DraftQuoteTemplate } from "./template";
+import { DraftQuoteTemplate } from "./draft-template";
 
 export default async function PrintableQuotePage({
   params,

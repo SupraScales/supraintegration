@@ -39,19 +39,29 @@ export async function uploadQuoteDocumentAction(formData: FormData) {
   const revision = String(formData.get("revision") ?? "").trim().slice(0, 60) || null;
   const file = formData.get("file");
 
+  // Access is checked before any validation feedback so the redirect target is
+  // guaranteed to be a quote this user is allowed to see.
+  const { access, supabase, quote } = await requireQuote(quoteId);
+
+  // Expected user mistakes come back as a readable message on the documents
+  // page instead of the generic error boundary.
+  const rejectUpload = (message: string) =>
+    redirect(`/portal/quotes/${quote.id}/documents?error=${encodeURIComponent(message)}`);
+
   if (!(file instanceof File) || file.size === 0) {
-    throw new Error("Choose a file to upload.");
+    rejectUpload("Choose a file to upload.");
+    return;
   }
   if (file.size > MAX_FILE_BYTES) {
-    throw new Error("Files must be 25 MB or smaller.");
+    rejectUpload("That file was not uploaded: files must be 25 MB or smaller.");
+    return;
   }
   if (!isSupportedUpload(file.name)) {
-    throw new Error(
-      "This file type is not accepted. Supported: PDF, images, text, spreadsheets, Word, email, and CAD (DWG/DXF).",
+    rejectUpload(
+      "That file type is not accepted, so nothing was uploaded. Accepted: PDF, images, text, spreadsheets, Word, email, and CAD (DWG/DXF).",
     );
+    return;
   }
-
-  const { access, supabase, quote } = await requireQuote(quoteId);
   const storagePath = `${access.organization.id}/${quote.id}/${randomUUID()}-${safeFileName(file.name)}`;
 
   const { error: uploadError } = await supabase.storage
