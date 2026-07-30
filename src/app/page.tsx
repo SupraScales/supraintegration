@@ -15,9 +15,9 @@ export default function Home() {
       <Header />
       <main>
         <Hero />
-        <CommandCenter />
         <Services />
         <SystemFlow />
+        <CommandCenter />
         <Approach />
         <Protocols />
         <TrustStrip />
