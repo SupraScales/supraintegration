@@ -24,9 +24,140 @@ type ActionRow = {
   due_at: string | null;
 };
 
-export default async function PortalOverviewPage() {
-  const { access } = await getPortalContext();
+async function QuotingHome({ organizationId }: { organizationId: string }) {
   const supabase = await createClient();
+  if (!supabase) {
+    return null;
+  }
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  const [quotesResult, unreviewedResult, followUpsResult, activityResult] =
+    await Promise.all([
+      supabase
+        .from("quote_projects")
+        .select("id, project_name, status, approval_state, sent_at, updated_at")
+        .eq("organization_id", organizationId),
+      supabase
+        .from("quote_takeoff_items")
+        .select("quote_id")
+        .eq("organization_id", organizationId)
+        .eq("active", true)
+        .eq("review_state", "unreviewed"),
+      supabase
+        .from("quote_follow_ups")
+        .select("id, quote_id, due_date")
+        .eq("organization_id", organizationId)
+        .is("completed_at", null)
+        .lte("due_date", today),
+      supabase
+        .from("quote_activity")
+        .select("id, action, created_at")
+        .eq("organization_id", organizationId)
+        .order("created_at", { ascending: false })
+        .limit(5),
+    ]);
+
+  const quotes = quotesResult.data ?? [];
+  const quotesWithUnreviewed = new Set(
+    (unreviewedResult.data ?? []).map((row) => row.quote_id),
+  );
+  const followUpsDue = followUpsResult.data ?? [];
+  const recentActivity = activityResult.data ?? [];
+
+  const cards = [
+    {
+      label: "New quote requests",
+      value: quotes.filter((quote) =>
+        ["new_request", "files_received"].includes(quote.status),
+      ).length,
+    },
+    {
+      label: "Takeoffs awaiting review",
+      value: quotes.filter(
+        (quote) =>
+          quote.status === "takeoff_review" || quotesWithUnreviewed.has(quote.id),
+      ).length,
+    },
+    {
+      label: "Waiting on vendor pricing",
+      value: quotes.filter((quote) => quote.status === "waiting_vendor_pricing").length,
+    },
+    {
+      label: "Quotes waiting on approval",
+      value: quotes.filter(
+        (quote) =>
+          quote.status === "waiting_approval" ||
+          quote.approval_state === "ready_for_review",
+      ).length,
+    },
+    { label: "Follow-ups due", value: followUpsDue.length },
+    {
+      label: "Quotes sent this week",
+      value: quotes.filter((quote) => quote.sent_at && quote.sent_at >= weekAgo).length,
+    },
+    {
+      label: "Recently won",
+      value: quotes.filter((quote) => quote.status === "won").length,
+    },
+    {
+      label: "Recently lost or declined",
+      value: quotes.filter((quote) => ["lost", "declined"].includes(quote.status)).length,
+    },
+  ];
+
+  return (
+    <section className="product-section">
+      <div className="product-section-heading">
+        <div>
+          <p className="product-kicker">
+            <span aria-hidden />
+            Quoting
+          </p>
+          <h2>What needs your attention</h2>
+        </div>
+        <span>{quotes.length} quote project(s)</span>
+      </div>
+      {quotes.length === 0 ? (
+        <EmptyState
+          title="No quote projects yet"
+          body="Create the first quote project from the Quotes tab when the next request comes in."
+        />
+      ) : (
+        <section className="kpi-grid" aria-label="Quoting status">
+          {cards.map((card) => (
+            <article className="kpi-card" key={card.label}>
+              <div>
+                <span>Now</span>
+                <i aria-hidden />
+              </div>
+              <h2>{card.value}</h2>
+              <p>{card.label}</p>
+            </article>
+          ))}
+        </section>
+      )}
+      {recentActivity.length > 0 ? (
+        <div className="action-list">
+          {recentActivity.map((entry) => (
+            <article key={entry.id}>
+              <div>
+                <b>{entry.action.replaceAll(".", " ").replaceAll("_", " ")}</b>
+              </div>
+              <span>{new Date(entry.created_at).toLocaleString()}</span>
+            </article>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+export default async function PortalOverviewPage() {
+  const { access, modules } = await getPortalContext();
+  const supabase = await createClient();
+  const quotingEnabled = modules.some((module) => module.module_key === "quotes");
 
   const [kpiResult, actionResult, sourceResult] = supabase
     ? await Promise.all([
@@ -76,6 +207,8 @@ export default async function PortalOverviewPage() {
           </StatusBadge>
         }
       />
+
+      {quotingEnabled ? <QuotingHome organizationId={access.organization.id} /> : null}
 
       {kpis.length > 0 ? (
         <section className="kpi-grid" aria-label="Business performance">

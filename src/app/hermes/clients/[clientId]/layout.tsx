@@ -6,6 +6,7 @@ const sections = [
   ["overview", "Overview"],
   ["data", "Data"],
   ["portal", "Portal"],
+  ["quoting", "Quoting"],
   ["agent", "Agent"],
   ["integrations", "Integrations"],
   ["users", "Users"],
