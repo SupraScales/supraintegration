@@ -1,8 +1,10 @@
+import { HeroVsl } from "./hero-vsl";
+
 const orbitLabels = ["Audit", "Design", "Deploy", "Operate"];
 
 export function Hero() {
   return (
-    <section className="space-hero" aria-labelledby="hero-title">
+    <section className="space-hero space-hero-with-vsl" aria-labelledby="hero-title">
       <div className="hero-space-object" aria-hidden>
         <div className="hero-orbit hero-orbit-one" />
         <div className="hero-orbit hero-orbit-two" />
@@ -46,6 +48,7 @@ export function Hero() {
         <h1 id="hero-title">
           Install the operating system <span>your business is missing.</span>
         </h1>
+        <HeroVsl />
         <p className="space-hero-body">
           Supra connects your leads, communication, follow-up, front office,
           reporting, and team workflows into one autonomous system—managed
