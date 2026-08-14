@@ -2109,9 +2109,9 @@ section[id] {
 }
 
 .booking-calendar {
-  border: 1px solid var(--color-rule-soft);
-  background: var(--color-void-raised);
-  color: var(--color-white);
+  border: 1px solid var(--color-dark-rule);
+  background: var(--color-card-dark);
+  color: var(--color-on-dark);
 }
 
 .booking-calendar-head {
@@ -2120,9 +2120,9 @@ section[id] {
   justify-content: flex-end;
   gap: 1rem;
   padding: 0.8rem 1rem;
-  border-bottom: 1px solid var(--color-rule);
-  background: var(--color-void-raised);
-  color: var(--color-white-soft);
+  border-bottom: 1px solid var(--color-dark-rule);
+  background: var(--color-card-dark);
+  color: var(--color-on-dark-soft);
   font-family: var(--font-mono);
   font-size: 0.5rem;
   letter-spacing: 0.14em;
@@ -2133,32 +2133,40 @@ section[id] {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: var(--color-white);
+  color: var(--color-on-dark);
   font-weight: 500;
 }
 
-.calendly-shell {
+.cal-shell {
   width: 100%;
   min-width: 320px;
   min-height: 700px;
-  overflow: hidden;
+  overflow: visible;
+  background: var(--color-card-dark);
+  color-scheme: dark;
 }
 
-.calendly-inline-widget {
+.cal-inline-widget {
   width: 100%;
   min-width: 320px;
   min-height: 700px;
-  height: 700px;
-  overflow: hidden;
+  overflow: visible;
+  background: var(--color-card-dark);
 }
 
-.calendly-inline-widget iframe { display: block; }
+.cal-inline-widget iframe {
+  display: block;
+  width: 100%;
+  min-height: 700px;
+  background: var(--color-card-dark);
+  color-scheme: dark;
+}
 
 .booking-fallback {
   padding: 0.8rem 1rem;
-  border-top: 1px solid var(--color-rule);
-  background: var(--color-void-raised);
-  color: var(--color-white-dim);
+  border-top: 1px solid var(--color-dark-rule);
+  background: var(--color-card-dark);
+  color: var(--color-on-dark-dim);
   font-family: var(--font-mono);
   font-size: 0.46rem;
   letter-spacing: 0.08em;
@@ -2166,7 +2174,7 @@ section[id] {
 }
 
 .booking-fallback a {
-  color: var(--color-white);
+  color: var(--color-on-dark);
   transition: color 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -2646,10 +2654,10 @@ section[id] {
   }
 
   .booking-calendar-head { font-size: 0.43rem; }
-  .calendly-shell,
-  .calendly-inline-widget { min-width: 0; min-height: 680px; }
+  .cal-shell,
+  .cal-inline-widget { min-width: 0; min-height: 680px; }
 
-  .calendly-inline-widget { height: 680px; }
+  .cal-inline-widget iframe { min-height: 680px; }
 
   .site-footer-main {
     grid-template-columns: repeat(2, 1fr);
