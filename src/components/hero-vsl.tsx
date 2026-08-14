@@ -116,7 +116,6 @@ export function HeroVsl() {
       </div>
 
       <div className="hero-vsl-foot" aria-hidden>
-        <span>VSL_01</span>
         <span>Supra Integration / Systems built to scale</span>
       </div>
     </div>
