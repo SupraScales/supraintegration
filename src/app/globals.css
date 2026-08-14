@@ -2141,7 +2141,7 @@ section[id] {
   width: 100%;
   min-width: 320px;
   min-height: 700px;
-  overflow: hidden;
+  overflow: visible;
   background: var(--color-card-dark);
   color-scheme: dark;
 }
@@ -2150,13 +2150,14 @@ section[id] {
   width: 100%;
   min-width: 320px;
   min-height: 700px;
-  height: 700px;
-  overflow: hidden;
+  overflow: visible;
   background: var(--color-card-dark);
 }
 
 .cal-inline-widget iframe {
   display: block;
+  width: 100%;
+  min-height: 700px;
   background: var(--color-card-dark);
   color-scheme: dark;
 }
@@ -2656,7 +2657,7 @@ section[id] {
   .cal-shell,
   .cal-inline-widget { min-width: 0; min-height: 680px; }
 
-  .cal-inline-widget { height: 680px; }
+  .cal-inline-widget iframe { min-height: 680px; }
 
   .site-footer-main {
     grid-template-columns: repeat(2, 1fr);
