@@ -18,6 +18,11 @@ const supportedSections = {
     title: "Audit history",
     description: "Meaningful administrative and configuration changes.",
   },
+  quoting: {
+    title: "Quoting health",
+    description:
+      "Quote pipeline status, document processing, and items requiring intervention. Client documents are not exposed here.",
+  },
 } as const;
 
 export default async function HermesClientSectionPage({
@@ -76,6 +81,91 @@ export default async function HermesClientSectionPage({
             <small>{item.status}</small>
           </article>
         ))}</div> : <EmptyState title="No client users assigned" body="Invite and assign a user through the authenticated account-provisioning process." />}
+      </>
+    );
+  }
+
+  if (section === "quoting") {
+    const [quotesResult, failedDocsResult, mockRunsResult, activityResult] =
+      await Promise.all([
+        supabase
+          .from("quote_projects")
+          .select("status")
+          .eq("organization_id", clientId),
+        supabase
+          .from("quote_documents")
+          .select("id, file_name, processing_status, processing_error, created_at")
+          .eq("organization_id", clientId)
+          .in("processing_status", ["failed", "needs_manual_review", "unsupported"])
+          .eq("active", true)
+          .order("created_at", { ascending: false })
+          .limit(25),
+        supabase
+          .from("quote_extraction_runs")
+          .select("id", { count: "exact", head: true })
+          .eq("organization_id", clientId)
+          .eq("is_mock", true),
+        supabase
+          .from("quote_activity")
+          .select("id, action, created_at")
+          .eq("organization_id", clientId)
+          .order("created_at", { ascending: false })
+          .limit(20),
+      ]);
+    const quotes = quotesResult.data ?? [];
+    const failedDocs = failedDocsResult.data ?? [];
+    const activity = activityResult.data ?? [];
+    const statusCounts = new Map<string, number>();
+    for (const quote of quotes) {
+      statusCounts.set(quote.status, (statusCounts.get(quote.status) ?? 0) + 1);
+    }
+
+    return (
+      <>
+        <ProductPageHeader eyebrow="Hermes / internal" {...definition} />
+        {quotes.length === 0 ? (
+          <EmptyState
+            title="No quote projects"
+            body="This client has not created quote projects yet, or the quoting module is disabled."
+          />
+        ) : (
+          <article className="product-panel">
+            <span>Pipeline</span>
+            <p>
+              {[...statusCounts.entries()]
+                .map(([status, count]) => `${status.replaceAll("_", " ")}: ${count}`)
+                .join(" · ")}
+            </p>
+            {(mockRunsResult.count ?? 0) > 0 ? (
+              <p>
+                {mockRunsResult.count} extraction run(s) used the development mock
+                provider. Mock rows can never be approved into a real quote.
+              </p>
+            ) : null}
+          </article>
+        )}
+        {failedDocs.length > 0 ? (
+          <article className="product-panel">
+            <span>Documents needing intervention</span>
+            {failedDocs.map((doc) => (
+              <p key={doc.id}>
+                <b>{doc.file_name}</b> — {doc.processing_status.replaceAll("_", " ")}
+                {doc.processing_error ? ` · ${doc.processing_error}` : ""}
+              </p>
+            ))}
+          </article>
+        ) : null}
+        {activity.length > 0 ? (
+          <article className="product-panel">
+            <span>Recent quoting activity</span>
+            {activity.map((entry) => (
+              <p key={entry.id}>
+                {new Date(entry.created_at).toLocaleString()} —{" "}
+                {entry.action.replaceAll(".", " ").replaceAll("_", " ")}
+              </p>
+            ))}
+          </article>
+        ) : null}
       </>
     );
   }

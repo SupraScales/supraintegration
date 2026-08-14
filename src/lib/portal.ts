@@ -12,9 +12,18 @@ export const portalModuleCatalog = [
   { key: "reputation", label: "Reputation" },
   { key: "reports", label: "Reports" },
   { key: "agent", label: "Agent" },
+  { key: "quotes", label: "Quotes" },
+  { key: "customers", label: "Customers" },
+  { key: "vendors", label: "Vendors" },
+  { key: "quote_settings", label: "Quote Settings" },
 ] as const;
 
 export type PortalModuleKey = (typeof portalModuleCatalog)[number]["key"];
+
+/** Module keys map to routes with dashes (e.g. quote_settings -> /portal/quote-settings). */
+export function portalModulePath(moduleKey: PortalModuleKey): string {
+  return `/portal/${moduleKey.replaceAll("_", "-")}`;
+}
 
 export async function getPortalContext() {
   const access = await requireAccess("client");
