@@ -59,7 +59,7 @@ export function CalEmbed() {
         theme: "dark",
         colorScheme: "dark",
         layout: "month_view",
-        hideEventTypeDetails: false,
+        hideEventTypeDetails: true,
         cssVarsPerTheme: {
           light: darkTheme,
           dark: darkTheme,
