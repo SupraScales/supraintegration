@@ -12,9 +12,14 @@ export const portalModuleCatalog = [
   { key: "reputation", label: "Reputation" },
   { key: "reports", label: "Reports" },
   { key: "agent", label: "Agent" },
+  { key: "lead_intelligence", label: "Lead Intelligence" },
 ] as const;
 
 export type PortalModuleKey = (typeof portalModuleCatalog)[number]["key"];
+
+export function portalModulePath(moduleKey: PortalModuleKey): string {
+  return `/portal/${moduleKey.replaceAll("_", "-")}`;
+}
 
 export async function getPortalContext() {
   const access = await requireAccess("client");
