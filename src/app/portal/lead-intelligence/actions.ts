@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { getPortalContext } from "@/lib/portal";
+import { requireEnabledPortalModule } from "@/lib/portal";
 import { createClient } from "@/lib/supabase/server";
 
 const feedbackSchema = z.object({
@@ -13,7 +13,7 @@ export async function saveLeadFeedback(candidateId: string, formData: FormData) 
   const parsed = feedbackSchema.safeParse({ rating: formData.get("rating") });
   if (!parsed.success) throw new Error("Invalid lead feedback.");
 
-  const { access } = await getPortalContext();
+  const { access } = await requireEnabledPortalModule("lead_intelligence");
   const supabase = await createClient();
   if (!supabase) throw new Error("Lead Intelligence is unavailable.");
 
