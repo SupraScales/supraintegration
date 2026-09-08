@@ -1,7 +1,6 @@
 -- SkyShare Lead Intelligence Slice 1: foundation + human review loop.
 -- No scraping, model calls, enrichment execution, schedulers, CRM writes, or outbound.
 
--- Extend the portal module registry for the client-safe Lead Intelligence surface.
 alter table public.portal_modules
   drop constraint if exists portal_modules_module_key_check;
 alter table public.portal_modules
@@ -63,15 +62,16 @@ create table if not exists public.lead_signals (
   created_at timestamptz not null default now(),
   unique (id, organization_id),
   foreign key (hunt_id, organization_id) references public.lead_hunts(id, organization_id) on delete cascade,
-  foreign key (hunt_run_id, organization_id) references public.lead_hunt_runs(id, organization_id) on delete set null
+  foreign key (hunt_run_id, organization_id) references public.lead_hunt_runs(id, organization_id) on delete restrict
 );
 
+-- This table is deliberately client-safe at the column level because published rows
+-- are directly selectable by client users. Internal hunt/signal IDs live in the
+-- private sibling table below.
 create table if not exists public.lead_candidates (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
   supra_lead_id text not null check (char_length(supra_lead_id) between 1 and 80),
-  hunt_id uuid,
-  signal_id uuid,
   source_hunt_key text not null check (char_length(source_hunt_key) between 1 and 100),
   source_hunt_label text not null check (char_length(source_hunt_label) between 1 and 160),
   person_name text not null check (char_length(person_name) between 1 and 200),
@@ -102,18 +102,17 @@ create table if not exists public.lead_candidates (
   updated_at timestamptz not null default now(),
   unique (organization_id, supra_lead_id),
   unique (id, organization_id),
-  foreign key (hunt_id, organization_id) references public.lead_hunts(id, organization_id) on delete set null,
-  foreign key (signal_id, organization_id) references public.lead_signals(id, organization_id) on delete set null,
   check (
     (publication_state = 'unpublished' and published_at is null and published_by is null)
     or (publication_state = 'published' and published_at is not null and published_by is not null)
   )
 );
 
--- Security boundary: everything here is internal-only even when the parent lead is published.
 create table if not exists public.lead_candidate_private_details (
   candidate_id uuid primary key,
   organization_id uuid not null references public.organizations(id) on delete cascade,
+  hunt_id uuid,
+  signal_id uuid,
   dedupe_key text,
   scoring_weights jsonb not null default '{}'::jsonb,
   prompt_material jsonb not null default '{}'::jsonb,
@@ -126,10 +125,11 @@ create table if not exists public.lead_candidate_private_details (
   updated_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  foreign key (candidate_id, organization_id) references public.lead_candidates(id, organization_id) on delete cascade
+  foreign key (candidate_id, organization_id) references public.lead_candidates(id, organization_id) on delete cascade,
+  foreign key (hunt_id, organization_id) references public.lead_hunts(id, organization_id) on delete restrict,
+  foreign key (signal_id, organization_id) references public.lead_signals(id, organization_id) on delete restrict
 );
 
--- Rows marked client_visible must contain only client-safe evidence fields.
 create table if not exists public.lead_evidence (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -161,9 +161,9 @@ create table if not exists public.lead_vendor_usage (
   metadata jsonb not null default '{}'::jsonb,
   occurred_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
-  foreign key (hunt_id, organization_id) references public.lead_hunts(id, organization_id) on delete set null,
-  foreign key (hunt_run_id, organization_id) references public.lead_hunt_runs(id, organization_id) on delete set null,
-  foreign key (candidate_id, organization_id) references public.lead_candidates(id, organization_id) on delete set null
+  foreign key (hunt_id, organization_id) references public.lead_hunts(id, organization_id) on delete restrict,
+  foreign key (hunt_run_id, organization_id) references public.lead_hunt_runs(id, organization_id) on delete restrict,
+  foreign key (candidate_id, organization_id) references public.lead_candidates(id, organization_id) on delete restrict
 );
 
 create table if not exists public.lead_feedback (
@@ -188,7 +188,6 @@ create index if not exists lead_evidence_candidate_idx on public.lead_evidence(c
 create index if not exists lead_vendor_usage_org_time_idx on public.lead_vendor_usage(organization_id, occurred_at desc);
 create index if not exists lead_feedback_candidate_idx on public.lead_feedback(candidate_id, rating);
 
--- Keep timestamps trustworthy.
 do $$
 declare
   table_name text;
@@ -202,7 +201,6 @@ begin
   end loop;
 end $$;
 
--- Audit publication/state changes without exposing audit writes to clients.
 create or replace function private.audit_lead_candidate_change()
 returns trigger
 language plpgsql
@@ -279,7 +277,6 @@ alter table public.lead_evidence enable row level security;
 alter table public.lead_vendor_usage enable row level security;
 alter table public.lead_feedback enable row level security;
 
--- Internal read/write policies. Internal members may inspect; only internal admins mutate source-of-truth records.
 create policy lead_hunts_internal_select on public.lead_hunts for select to authenticated using ((select private.is_internal_member()));
 create policy lead_hunts_internal_write on public.lead_hunts for all to authenticated using ((select private.is_internal_admin())) with check ((select private.is_internal_admin()));
 create policy lead_hunt_runs_internal_select on public.lead_hunt_runs for select to authenticated using ((select private.is_internal_member()));
@@ -296,7 +293,6 @@ create policy lead_vendor_usage_internal_select on public.lead_vendor_usage for 
 create policy lead_vendor_usage_internal_write on public.lead_vendor_usage for all to authenticated using ((select private.is_internal_admin())) with check ((select private.is_internal_admin()));
 create policy lead_feedback_internal_select on public.lead_feedback for select to authenticated using ((select private.is_internal_member()));
 
--- Client-safe lead/evidence reads: own organization + published only.
 create policy lead_candidates_client_select on public.lead_candidates
 for select to authenticated
 using (
@@ -317,7 +313,6 @@ using (
   )
 );
 
--- Clients can read and upsert only their own review on a published lead in their organization.
 create policy lead_feedback_client_select on public.lead_feedback
 for select to authenticated
 using (
