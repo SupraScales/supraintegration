@@ -60,7 +60,6 @@ if (!readConfig().ok) {
     const publishedA = await insert(svc, "lead_candidates", {
       organization_id: ctx.orgIds.clientA,
       supra_lead_id: "TEST-A-PUBLISHED",
-      hunt_id: huntA.id,
       source_hunt_key: "test-liquidity",
       source_hunt_label: "Test liquidity event",
       person_name: "Published Test Person",
@@ -74,7 +73,6 @@ if (!readConfig().ok) {
     const unpublishedA = await insert(svc, "lead_candidates", {
       organization_id: ctx.orgIds.clientA,
       supra_lead_id: "TEST-A-UNPUBLISHED",
-      hunt_id: huntA.id,
       source_hunt_key: "test-liquidity",
       source_hunt_label: "Test liquidity event",
       person_name: "Unpublished Test Person",
@@ -84,7 +82,6 @@ if (!readConfig().ok) {
     const publishedB = await insert(svc, "lead_candidates", {
       organization_id: ctx.orgIds.clientB,
       supra_lead_id: "TEST-B-PUBLISHED",
-      hunt_id: huntB.id,
       source_hunt_key: "test-dealer",
       source_hunt_label: "Test dealer expansion",
       person_name: "Other Tenant Test Person",
@@ -98,10 +95,17 @@ if (!readConfig().ok) {
     await insert(svc, "lead_candidate_private_details", {
       candidate_id: publishedA.id,
       organization_id: ctx.orgIds.clientA,
+      hunt_id: huntA.id,
       dedupe_key: "private-dedupe-key",
       scoring_weights: { secret_weight: 99 },
       prompt_material: { private_prompt: true },
       vendor_payloads: { secret_vendor_payload: true },
+    }, "candidate_id");
+    await insert(svc, "lead_candidate_private_details", {
+      candidate_id: publishedB.id,
+      organization_id: ctx.orgIds.clientB,
+      hunt_id: huntB.id,
+      dedupe_key: "private-other-tenant",
     }, "candidate_id");
 
     await insert(svc, "lead_evidence", {
@@ -137,6 +141,8 @@ if (!readConfig().ok) {
     const result = await read(ctx.clients.clientAAdmin, "lead_candidates");
     assert.equal(result.error, null);
     assert.deepEqual(result.data.map((row) => row.id), [ctx.ids.publishedA]);
+    assert.equal("hunt_id" in result.data[0], false, "client-safe candidate must not expose internal hunt id");
+    assert.equal("signal_id" in result.data[0], false, "client-safe candidate must not expose internal signal id");
   });
 
   test("client cannot read unpublished or cross-tenant candidates", async () => {
@@ -212,7 +218,7 @@ if (!readConfig().ok) {
     assert.equal(leads.error, null);
     assert.ok(leads.data.length >= 3);
     assert.equal(privateDetails.error, null);
-    assert.equal(privateDetails.data[0].dedupe_key, "private-dedupe-key");
+    assert.ok(privateDetails.data.some((row) => row.dedupe_key === "private-dedupe-key"));
   });
 
   test("internal admin can publish/update candidate state", async () => {
