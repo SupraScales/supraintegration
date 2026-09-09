@@ -52,16 +52,18 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
     updated_by: access.user.id,
   }, { onConflict: "organization_id,hunt_key" }).select("id").single();
   if (huntError || !hunt) throw new Error("SEC hunt could not be initialized.");
+  const huntId = hunt.id;
 
   const { data: run, error: runError } = await supabase.from("lead_hunt_runs").insert({
     organization_id: clientId,
-    hunt_id: hunt.id,
+    hunt_id: huntId,
     status: "running",
     trigger_kind: "manual",
     started_at: new Date().toISOString(),
     created_by: access.user.id,
   }).select("id").single();
   if (runError || !run) throw new Error("SEC hunt run could not be created.");
+  const runId = run.id;
 
   async function recordGate(input: {
     kind: GateKind;
@@ -72,8 +74,8 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
   }) {
     const { error } = await supabase.from("lead_gate_events").insert({
       organization_id: clientId,
-      hunt_id: hunt.id,
-      hunt_run_id: run.id,
+      hunt_id: huntId,
+      hunt_run_id: runId,
       signal_id: input.signalId ?? null,
       candidate_id: input.candidateId ?? null,
       gate_kind: input.kind,
@@ -116,7 +118,7 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
           estimated_tokens: 0,
           external_cost: 0,
         },
-      }).eq("id", run.id).eq("organization_id", clientId);
+      }).eq("id", runId).eq("organization_id", clientId);
       return { outcome: "rejected", reason: rejection.message, amount: 0 };
     }
 
@@ -139,8 +141,8 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
 
     const { data: signal, error: signalError } = await supabase.from("lead_signals").insert({
       organization_id: clientId,
-      hunt_id: hunt.id,
-      hunt_run_id: run.id,
+      hunt_id: huntId,
+      hunt_run_id: runId,
       source_type: "sec_form_4",
       source_record_id: parsed.dedupeKey,
       source_url: parsed.filingUrl,
@@ -180,7 +182,7 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
         status: "completed",
         completed_at: new Date().toISOString(),
         summary: { raw_signals: 1, rejected: 1, qualified: 0, rejection_reason: "below_threshold", model_calls: 0, estimated_tokens: 0, external_cost: 0 },
-      }).eq("id", run.id).eq("organization_id", clientId);
+      }).eq("id", runId).eq("organization_id", clientId);
       return { outcome: "rejected", reason, amount: draft.eventAmount };
     }
 
@@ -202,7 +204,7 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
         status: "completed",
         completed_at: new Date().toISOString(),
         summary: { raw_signals: 1, rejected: 1, qualified: 0, rejection_reason: "geography", model_calls: 0, estimated_tokens: 0, external_cost: 0 },
-      }).eq("id", run.id).eq("organization_id", clientId);
+      }).eq("id", runId).eq("organization_id", clientId);
       return { outcome: "rejected", reason, amount: draft.eventAmount };
     }
 
@@ -225,7 +227,7 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
         status: "completed",
         completed_at: new Date().toISOString(),
         summary: { raw_signals: 1, rejected: 1, qualified: 0, rejection_reason: "duplicate", model_calls: 0, estimated_tokens: 0, external_cost: 0 },
-      }).eq("id", run.id).eq("organization_id", clientId);
+      }).eq("id", runId).eq("organization_id", clientId);
       return {
         outcome: "duplicate",
         candidateId: existing.candidate_id,
@@ -274,7 +276,7 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
     const { error: privateError } = await supabase.from("lead_candidate_private_details").insert({
       candidate_id: candidate.id,
       organization_id: clientId,
-      hunt_id: hunt.id,
+      hunt_id: huntId,
       signal_id: signal.id,
       dedupe_key: draft.dedupeKey,
       enrichment_needed: true,
@@ -335,7 +337,7 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
         estimated_tokens: 0,
         external_cost: 0,
       },
-    }).eq("id", run.id).eq("organization_id", clientId);
+    }).eq("id", runId).eq("organization_id", clientId);
 
     return {
       outcome: "candidate_created",
@@ -348,7 +350,7 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
       status: "failed",
       completed_at: new Date().toISOString(),
       error: error instanceof Error ? error.message : "Unknown SEC hunter error",
-    }).eq("id", run.id).eq("organization_id", clientId);
+    }).eq("id", runId).eq("organization_id", clientId);
     throw error;
   }
 }
