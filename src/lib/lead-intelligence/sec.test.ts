@@ -35,7 +35,7 @@ test("real Microsoft Form 4 deterministically clears $5M and becomes a whale", (
   assert.equal(parsed.reportingOwnerState, "WASHINGTON");
   assert.equal(parsed.westernRelevant, true);
   assert.equal(parsed.totalShares, 86525);
-  assert.equal(parsed.totalSaleCents, 4_338_853_241n);
+  assert.equal(parsed.totalSaleCents, BigInt("4338853241"));
   assert.equal(draft.eventAmount, 43_388_532.41);
   assert.equal(draft.systemRecommendation, "whale");
   assert.equal(draft.deterministicChecks.model_calls, 0);
