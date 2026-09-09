@@ -10,6 +10,11 @@ alter table public.lead_candidates
   add column if not exists event_currency text not null default 'USD'
     check (char_length(event_currency) = 3);
 
+-- Internal-only operational flag. This remains on the private sibling table so the
+-- client cannot infer enrichment orchestration decisions.
+alter table public.lead_candidate_private_details
+  add column if not exists enrichment_needed boolean not null default false;
+
 alter table public.lead_feedback
   add column if not exists human_decision text
     check (human_decision in ('approve', 'reject', 'override')),
@@ -31,7 +36,6 @@ alter table public.lead_feedback
   );
 
 -- Require a system recommendation before publication once this POC migration is applied.
--- Existing test/dev rows may remain unpublished without one.
 alter table public.lead_candidates
   drop constraint if exists lead_candidates_published_recommendation_check;
 alter table public.lead_candidates
@@ -42,7 +46,6 @@ alter table public.lead_candidates
 create index if not exists lead_candidates_recommendation_idx
   on public.lead_candidates(organization_id, publication_state, system_recommendation, event_date desc);
 
--- Audit the new decision fields without exposing internal audit storage to clients.
 create or replace function private.audit_lead_feedback_change()
 returns trigger
 language plpgsql
