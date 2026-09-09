@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { requireEnabledPortalModule } from "@/lib/portal";
 import { requireHermesClient } from "@/lib/hermes";
 import { createClient } from "@/lib/supabase/server";
+import { summarizeHuntRuns, type LeadGateEvent } from "@/lib/lead-intelligence-run-summary";
 
 export type LeadRecommendation = "whale" | "good" | "bad";
 export type HumanDecision = "approve" | "reject" | "override";
@@ -101,7 +102,11 @@ export async function getPortalLeadList() {
       .eq("user_id", access.user.id),
   ]);
 
-  return { access, candidates: (candidateData ?? []) as LeadCandidate[], feedback: (feedbackData ?? []) as LeadFeedback[] };
+  return {
+    access,
+    candidates: (candidateData ?? []) as LeadCandidate[],
+    feedback: (feedbackData ?? []) as LeadFeedback[],
+  };
 }
 
 export async function getPortalLeadDetail(leadId: string) {
@@ -143,7 +148,7 @@ export async function getPortalLeadDetail(leadId: string) {
 export async function getHermesLeadIntelligence(clientId: string) {
   const { client, supabase } = await requireHermesClient(clientId);
 
-  const [candidateResult, privateResult, evidenceResult, feedbackResult, huntResult, signalResult, runResult] = await Promise.all([
+  const [candidateResult, privateResult, evidenceResult, feedbackResult, huntResult, signalResult, runResult, gateResult, vendorResult] = await Promise.all([
     supabase.from("lead_candidates").select(candidateSelect).eq("organization_id", clientId).order("created_at", { ascending: false }),
     supabase
       .from("lead_candidate_private_details")
@@ -152,18 +157,41 @@ export async function getHermesLeadIntelligence(clientId: string) {
     supabase.from("lead_evidence").select("id, candidate_id, label, source_url, evidence_type, summary, captured_at, client_visible").eq("organization_id", clientId).order("created_at"),
     supabase.from("lead_feedback").select(feedbackSelect).eq("organization_id", clientId).order("updated_at", { ascending: false }),
     supabase.from("lead_hunts").select("id, hunt_key, label, priority, enabled, configuration").eq("organization_id", clientId).order("priority").order("label"),
-    supabase.from("lead_signals").select("id, hunt_id, hunt_run_id, source_type, source_record_id, source_url, event_type, title, occurred_at, geography, normalized_payload, raw_payload, created_at").eq("organization_id", clientId).order("created_at", { ascending: false }).limit(100),
+    supabase.from("lead_signals").select("id, hunt_id, hunt_run_id, source_type, source_record_id, source_url, event_type, title, occurred_at, geography, normalized_payload, raw_payload, created_at").eq("organization_id", clientId).order("created_at", { ascending: false }).limit(200),
     supabase.from("lead_hunt_runs").select("id, hunt_id, status, trigger_kind, summary, error, started_at, completed_at, created_at").eq("organization_id", clientId).order("created_at", { ascending: false }).limit(50),
+    supabase.from("lead_gate_events").select("id, hunt_id, hunt_run_id, signal_id, candidate_id, gate_kind, reason_code, source_url, internal_evidence, model_calls, estimated_input_tokens, estimated_output_tokens, created_at").eq("organization_id", clientId).order("created_at", { ascending: false }).limit(1000),
+    supabase.from("lead_vendor_usage").select("id, hunt_id, hunt_run_id, candidate_id, provider, model, operation, units, input_tokens, output_tokens, total_cost, currency, occurred_at").eq("organization_id", clientId).order("occurred_at", { ascending: false }).limit(1000),
   ]);
+
+  const candidates = (candidateResult.data ?? []) as LeadCandidate[];
+  const privateDetails = (privateResult.data ?? []) as LeadPrivateDetails[];
+  const feedback = (feedbackResult.data ?? []) as LeadFeedback[];
+  const hunts = (huntResult.data ?? []) as Array<Record<string, unknown>>;
+  const signals = (signalResult.data ?? []) as Array<Record<string, unknown>>;
+  const runs = (runResult.data ?? []) as Array<Record<string, unknown>>;
+  const gateEvents = (gateResult.data ?? []) as LeadGateEvent[];
+  const vendorUsage = (vendorResult.data ?? []) as Array<Record<string, unknown>>;
 
   return {
     client,
-    candidates: (candidateResult.data ?? []) as LeadCandidate[],
-    privateDetails: (privateResult.data ?? []) as LeadPrivateDetails[],
+    candidates,
+    privateDetails,
     evidence: (evidenceResult.data ?? []) as LeadEvidence[],
-    feedback: (feedbackResult.data ?? []) as LeadFeedback[],
-    hunts: huntResult.data ?? [],
-    signals: signalResult.data ?? [],
-    runs: runResult.data ?? [],
+    feedback,
+    hunts,
+    signals,
+    runs,
+    gateEvents,
+    vendorUsage,
+    runSummaries: summarizeHuntRuns({
+      runs,
+      hunts,
+      signals,
+      candidates,
+      privateDetails,
+      feedback,
+      gateEvents,
+      vendorUsage,
+    }),
   };
 }
