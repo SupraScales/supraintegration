@@ -6,8 +6,9 @@ const WESTERN_STATES = new Set([
   "WYOMING", "UTAH", "COLORADO", "ARIZONA", "NEW MEXICO",
 ]);
 
-const SEC_USER_AGENT = "Supra Integration Lead Intelligence contact@supraintegration.ai";
-const MINIMUM_SALE_CENTS = 500_000_000n;
+const SEC_USER_AGENT = "Supra Integration Lead Intelligence SupraScales@suprascales.com";
+const MINIMUM_SALE_CENTS = BigInt("500000000");
+const WHALE_SALE_CENTS = BigInt("2500000000");
 
 export type SecSaleTransaction = {
   date: string;
@@ -90,16 +91,16 @@ function parseDecimal(value: string) {
   const [whole, fraction = ""] = normalized.split(".");
   return {
     digits: BigInt(`${whole}${fraction}`),
-    scale: 10n ** BigInt(fraction.length),
+    scale: BigInt(10) ** BigInt(fraction.length),
   };
 }
 
 export function decimalProductToCents(left: string, right: string): bigint {
   const a = parseDecimal(left);
   const b = parseDecimal(right);
-  const numerator = a.digits * b.digits * 100n;
+  const numerator = a.digits * b.digits * BigInt(100);
   const denominator = a.scale * b.scale;
-  return (numerator + denominator / 2n) / denominator;
+  return (numerator + denominator / BigInt(2)) / denominator;
 }
 
 function normalizeState(value: string | null): string | null {
@@ -152,7 +153,7 @@ export function parseSecForm4Xml(xml: string, filingUrl: string): ParsedSecForm4
 
   if (saleTransactions.length === 0) throw new Error("No open-market sale transactions (transaction code S) were found.");
 
-  const totalSaleCents = saleTransactions.reduce((sum, transaction) => sum + transaction.valueCents, 0n);
+  const totalSaleCents = saleTransactions.reduce((sum, transaction) => sum + transaction.valueCents, BigInt(0));
   const totalShares = saleTransactions.reduce((sum, transaction) => sum + Number(transaction.shares.replaceAll(",", "")), 0);
   const eventDate = saleTransactions.map((transaction) => transaction.date).sort().at(-1)!;
   const state = normalizeState(tagValue(ownerAddress, "rptOwnerState"));
@@ -181,7 +182,7 @@ export function parseSecForm4Xml(xml: string, filingUrl: string): ParsedSecForm4
 function recommendationFor(parsed: ParsedSecForm4): "whale" | "good" | "bad" {
   if (parsed.totalSaleCents < MINIMUM_SALE_CENTS || !parsed.westernRelevant) return "bad";
   const seniorRole = /chief executive|\bceo\b|founder|owner|chair|president/i.test(parsed.role);
-  if (parsed.totalSaleCents >= 2_500_000_000n && seniorRole) return "whale";
+  if (parsed.totalSaleCents >= WHALE_SALE_CENTS && seniorRole) return "whale";
   return "good";
 }
 
