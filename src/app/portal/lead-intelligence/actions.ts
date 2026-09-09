@@ -39,4 +39,5 @@ export async function saveLeadDecision(candidateId: string, formData: FormData) 
 
   revalidatePath("/portal/lead-intelligence");
   revalidatePath(`/portal/lead-intelligence/${candidateId}`);
+  revalidatePath(`/hermes/clients/${access.organization.id}/lead-intelligence`);
 }
