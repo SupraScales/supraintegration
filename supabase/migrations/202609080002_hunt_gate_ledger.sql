@@ -29,14 +29,20 @@ create table if not exists public.lead_gate_events (
   )),
   source_url text,
   internal_evidence jsonb not null default '{}'::jsonb,
-  model_calls integer not null default 0 check (model_calls >= 0),
-  estimated_input_tokens bigint not null default 0 check (estimated_input_tokens >= 0),
-  estimated_output_tokens bigint not null default 0 check (estimated_output_tokens >= 0),
   created_at timestamptz not null default now(),
   foreign key (hunt_id, organization_id) references public.lead_hunts(id, organization_id) on delete cascade,
   foreign key (hunt_run_id, organization_id) references public.lead_hunt_runs(id, organization_id) on delete cascade,
   foreign key (signal_id, organization_id) references public.lead_signals(id, organization_id) on delete restrict,
-  foreign key (candidate_id, organization_id) references public.lead_candidates(id, organization_id) on delete restrict
+  foreign key (candidate_id, organization_id) references public.lead_candidates(id, organization_id) on delete restrict,
+  check (
+    (gate_kind = 'signal_seen' and reason_code = 'raw_signal_seen')
+    or (gate_kind = 'rejection' and reason_code in ('below_threshold', 'geography', 'duplicate', 'weak_qualification', 'missing_beneficiary'))
+    or (gate_kind = 'qualification' and reason_code = 'qualified')
+    or (gate_kind = 'enrichment' and reason_code = 'enrichment_needed')
+    or (gate_kind = 'publication' and reason_code = 'published')
+    or (gate_kind = 'client_decision' and reason_code in ('client_approved', 'client_rejected', 'client_overridden'))
+  ),
+  check (gate_kind <> 'rejection' or internal_evidence <> '{}'::jsonb)
 );
 
 create index if not exists lead_gate_events_run_idx
@@ -55,15 +61,45 @@ alter table public.lead_vendor_usage
   add column if not exists input_tokens bigint check (input_tokens >= 0),
   add column if not exists output_tokens bigint check (output_tokens >= 0);
 
+-- Paid vendor usage and any model usage must always be attributable to the full
+-- organization -> hunt -> run -> candidate chain. This applies to future writes
+-- without inventing attribution for historical zero-cost rows.
+create or replace function private.enforce_lead_vendor_usage_attribution()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if new.total_cost > 0
+     or new.model is not null
+     or coalesce(new.input_tokens, 0) > 0
+     or coalesce(new.output_tokens, 0) > 0 then
+    if new.hunt_id is null or new.hunt_run_id is null or new.candidate_id is null then
+      raise exception 'Paid/API model usage requires hunt_id, hunt_run_id, and candidate_id attribution';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+revoke execute on function private.enforce_lead_vendor_usage_attribution() from public;
+
+drop trigger if exists enforce_lead_vendor_usage_attribution on public.lead_vendor_usage;
+create trigger enforce_lead_vendor_usage_attribution
+before insert or update on public.lead_vendor_usage
+for each row execute function private.enforce_lead_vendor_usage_attribution();
+
 alter table public.lead_gate_events enable row level security;
 
 create policy lead_gate_events_internal_select on public.lead_gate_events
 for select to authenticated
 using ((select private.is_internal_member()));
 
-create policy lead_gate_events_internal_write on public.lead_gate_events
-for all to authenticated
-using ((select private.is_internal_admin()))
+-- Append-only for authenticated application users. There is deliberately no update
+-- or delete policy on this ledger.
+create policy lead_gate_events_internal_insert on public.lead_gate_events
+for insert to authenticated
 with check ((select private.is_internal_admin()));
 
 -- Record publication against the run that produced the candidate. This remains
@@ -113,8 +149,8 @@ after update of publication_state on public.lead_candidates
 for each row execute function private.record_lead_publication_gate();
 
 -- Record human decisions against the originating run without exposing the ledger to
--- client users. Multiple decisions are retained as history; current truth remains in
--- lead_feedback.
+-- client users. Meaningful decision changes are retained as history; current truth
+-- remains in lead_feedback.
 create or replace function private.record_lead_feedback_gate()
 returns trigger
 language plpgsql
@@ -128,6 +164,12 @@ declare
   v_reason text;
 begin
   if new.human_decision is null then
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE'
+     and old.human_decision is not distinct from new.human_decision
+     and old.human_override is not distinct from new.human_override then
     return new;
   end if;
 
