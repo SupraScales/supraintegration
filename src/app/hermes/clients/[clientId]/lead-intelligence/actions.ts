@@ -46,13 +46,12 @@ export async function updateLeadCandidateState(
   revalidatePath("/portal/lead-intelligence");
 }
 
-export async function runSecPocAction(clientId: string, formData: FormData) {
+export async function runSecPocAction(clientId: string, formData: FormData): Promise<void> {
   const parsed = z.object({
     filingUrl: z.string().url().refine((value) => value.startsWith("https://www.sec.gov/"), "Use an official SEC URL."),
   }).safeParse({ filingUrl: formData.get("filing_url") });
   if (!parsed.success) throw new Error("Enter a valid official SEC Form 4 XML URL.");
 
-  const result = await runSecHunterPoc(clientId, parsed.data.filingUrl);
+  await runSecHunterPoc(clientId, parsed.data.filingUrl);
   revalidatePath(`/hermes/clients/${clientId}/lead-intelligence`);
-  return result;
 }
