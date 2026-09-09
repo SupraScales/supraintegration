@@ -6,6 +6,7 @@ import { buildSecCandidateDraft, fetchAndParseSecForm4 } from "@/lib/lead-intell
 
 const HUNT_KEY = "sec-insider-sale-5m";
 const HUNT_LABEL = "$5M+ Public-Company Insider Stock Sales";
+const MINIMUM_SALE_CENTS = BigInt("500000000");
 
 export type SecHunterPocResult =
   | { outcome: "candidate_created" | "duplicate"; candidateId: string; recommendation: "whale" | "good" | "bad"; amount: number }
@@ -101,7 +102,7 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
       .single();
     if (signalError || !signal) throw new Error("SEC signal could not be stored.");
 
-    const thresholdPassed = parsed.totalSaleCents >= 500_000_000n;
+    const thresholdPassed = parsed.totalSaleCents >= MINIMUM_SALE_CENTS;
     if (!thresholdPassed || !parsed.westernRelevant) {
       const reason = !thresholdPassed
         ? "Sale proceeds are below the $5M deterministic threshold."
@@ -127,18 +128,10 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
         completed_at: new Date().toISOString(),
         summary: { signals: 1, candidates: 0, duplicates: 1 },
       }).eq("id", run.id).eq("organization_id", clientId);
-      return {
-        outcome: "duplicate",
-        candidateId: existing.candidate_id,
-        recommendation: draft.systemRecommendation,
-        amount: draft.eventAmount,
-      };
+      return { outcome: "duplicate", candidateId: existing.candidate_id, recommendation: draft.systemRecommendation, amount: draft.eventAmount };
     }
 
-    const ownerToken = (parsed.reportingOwnerCik ?? parsed.reportingOwnerName)
-      .replace(/[^a-zA-Z0-9]/g, "")
-      .slice(-10)
-      .toUpperCase();
+    const ownerToken = (parsed.reportingOwnerCik ?? parsed.reportingOwnerName).replace(/[^a-zA-Z0-9]/g, "").slice(-10).toUpperCase();
     const supraLeadId = `SEC-${parsed.ticker ?? "PUBLIC"}-${parsed.eventDate.replaceAll("-", "")}-${ownerToken}`;
 
     const { data: candidate, error: candidateError } = await supabase
@@ -183,17 +176,9 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
       signal_id: signal.id,
       dedupe_key: draft.dedupeKey,
       internal_reasoning: "Deterministic SEC POC qualification. No model call used for parsing, math, thresholding, geography, dedupe, or recommendation.",
-      source_orchestration: {
-        source: "sec.gov",
-        adapter: "form4_xml_manual_poc",
-        filing_url: parsed.filingUrl,
-      },
+      source_orchestration: { source: "sec.gov", adapter: "form4_xml_manual_poc", filing_url: parsed.filingUrl },
       model_internals: { model_calls: 0, estimated_input_tokens: 0, estimated_output_tokens: 0 },
-      qualification_config: {
-        minimum_sale_usd: 5_000_000,
-        western11_required: true,
-        transaction_code: "S",
-      },
+      qualification_config: { minimum_sale_usd: 5_000_000, western11_required: true, transaction_code: "S" },
       private_research: { deterministic_checks: draft.deterministicChecks },
       vendor_payloads: {},
       updated_by: access.user.id,
@@ -213,29 +198,11 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
     });
     if (evidenceError) throw new Error("SEC evidence could not be stored.");
 
-    await supabase.from("lead_hunt_runs").update({
-      status: "completed",
-      completed_at: new Date().toISOString(),
-      summary: {
-        signals: 1,
-        candidates: 1,
-        recommendation: draft.systemRecommendation,
-        model_calls: 0,
-      },
-    }).eq("id", run.id).eq("organization_id", clientId);
+    await supabase.from("lead_hunt_runs").update({ status: "completed", completed_at: new Date().toISOString(), summary: { signals: 1, candidates: 1, recommendation: draft.systemRecommendation, model_calls: 0 } }).eq("id", run.id).eq("organization_id", clientId);
 
-    return {
-      outcome: "candidate_created",
-      candidateId: candidate.id,
-      recommendation: draft.systemRecommendation,
-      amount: draft.eventAmount,
-    };
+    return { outcome: "candidate_created", candidateId: candidate.id, recommendation: draft.systemRecommendation, amount: draft.eventAmount };
   } catch (error) {
-    await supabase.from("lead_hunt_runs").update({
-      status: "failed",
-      completed_at: new Date().toISOString(),
-      error: error instanceof Error ? error.message : "Unknown SEC hunter error",
-    }).eq("id", run.id).eq("organization_id", clientId);
+    await supabase.from("lead_hunt_runs").update({ status: "failed", completed_at: new Date().toISOString(), error: error instanceof Error ? error.message : "Unknown SEC hunter error" }).eq("id", run.id).eq("organization_id", clientId);
     throw error;
   }
 }
