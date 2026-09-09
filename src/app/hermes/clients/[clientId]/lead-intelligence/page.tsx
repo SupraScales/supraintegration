@@ -40,6 +40,7 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
     gateEvents,
   } = await getHermesLeadIntelligence(clientId);
   const privateByCandidate = new Map(privateDetails.map((item) => [item.candidate_id, item]));
+  const candidateById = new Map(candidates.map((candidate) => [candidate.id, candidate]));
   const runSec = runSecPocAction.bind(null, clientId);
 
   return (
@@ -72,6 +73,9 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
         <div className="action-list">
           {runSummaries.slice(0, 10).map((run) => {
             const runGates = gateEvents.filter((event) => event.hunt_run_id === run.id);
+            const reachedCandidates = run.publishedCandidateIds
+              .map((candidateId) => candidateById.get(candidateId))
+              .filter((candidate) => candidate != null);
             return (
               <article key={run.id}>
                 <div>
@@ -95,6 +99,23 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
                 <p>
                   Client: {run.clientApproved} approved · {run.clientRejected} rejected · {run.clientOverridden} overridden
                 </p>
+
+                {reachedCandidates.length ? (
+                  <div className="product-panel">
+                    <b>Reached SkyShare</b>
+                    <ul>
+                      {reachedCandidates.map((candidate) => {
+                        const decisions = feedback.filter((item) => item.candidate_id === candidate.id && item.human_decision);
+                        return (
+                          <li key={candidate.id}>
+                            {candidate.person_name} · {candidate.supra_lead_id}
+                            {decisions.length ? ` · ${decisions.map((item) => item.human_decision === "override" ? `override → ${item.human_override}` : item.human_decision).join(", ")}` : " · no client decision yet"}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ) : <p>No candidate from this run has reached the client portal.</p>}
 
                 {Object.keys(run.rejectionBreakdown).length ? (
                   <div className="product-panel">
