@@ -6,15 +6,41 @@ function pretty(value: unknown) {
   return JSON.stringify(value ?? {}, null, 2);
 }
 
-function money(amount: number | null, currency: string) {
+function money(amount: number | null, currency = "USD") {
   if (amount == null) return "Unknown";
-  return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
+  return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 2 }).format(amount);
+}
+
+function time(value: string | null) {
+  if (!value) return "Unknown";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function reasonLabel(code: string) {
+  return code.replaceAll("_", " ");
 }
 
 export default async function HermesLeadIntelligencePage({ params }: { params: Promise<{ clientId: string }> }) {
   const { clientId } = await params;
-  const { client, candidates, privateDetails, evidence, feedback, hunts, signals, runs } = await getHermesLeadIntelligence(clientId);
+  const {
+    client,
+    candidates,
+    privateDetails,
+    evidence,
+    feedback,
+    hunts,
+    signals,
+    runSummaries,
+    gateEvents,
+  } = await getHermesLeadIntelligence(clientId);
   const privateByCandidate = new Map(privateDetails.map((item) => [item.candidate_id, item]));
+  const candidateById = new Map(candidates.map((candidate) => [candidate.id, candidate]));
   const runSec = runSecPocAction.bind(null, clientId);
 
   return (
@@ -22,7 +48,7 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
       <ProductPageHeader
         eyebrow="Hermes / internal brain"
         title="Lead Intelligence"
-        description={`Internal hunting, qualification, QA, and publication for ${client.name}. Raw signals and private scoring stay inside Hermes.`}
+        description={`Internal hunting, qualification, QA, and publication for ${client.name}. Raw signals, gate decisions, and private scoring stay inside Hermes.`}
         actions={<StatusBadge>{candidates.length} candidates</StatusBadge>}
       />
 
@@ -35,23 +61,90 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
             <span>Official SEC Form 4 XML URL</span>
             <input name="filing_url" type="url" required placeholder="https://www.sec.gov/Archives/edgar/data/.../form4.xml" />
           </label>
-          <p>Deterministic only in this slice: transaction code, math, $5M threshold, Western-11 check, dedupe, and initial recommendation. No model call and no paid API.</p>
+          <p>Level 0 deterministic processing only: transaction parsing, math, $5M threshold, Western-11 check, dedupe, and initial recommendation. No paid API and no model call.</p>
           <button type="submit">Run SEC hunter</button>
         </form>
       </section>
 
       <section className="product-section">
         <div className="product-section-heading">
-          <div><p className="product-kicker"><span aria-hidden />Runs</p><h2>Recent hunter execution</h2></div><span>{runs.length}</span>
+          <div><p className="product-kicker"><span aria-hidden />Gate ledger</p><h2>Recent hunt runs</h2></div><span>{runSummaries.length}</span>
         </div>
         <div className="action-list">
-          {runs.slice(0, 10).map((run) => (
-            <article key={String(run.id)}>
-              <div><StatusBadge>{String(run.status)}</StatusBadge><b>{String(run.trigger_kind)}</b></div>
-              <pre>{pretty(run.summary)}</pre>
-              {run.error ? <p>{String(run.error)}</p> : null}
-            </article>
-          ))}
+          {runSummaries.slice(0, 10).map((run) => {
+            const runGates = gateEvents.filter((event) => event.hunt_run_id === run.id);
+            const reachedCandidates = run.publishedCandidateIds
+              .map((candidateId) => candidateById.get(candidateId))
+              .filter((candidate) => candidate != null);
+            return (
+              <article key={run.id}>
+                <div>
+                  <StatusBadge>{run.status}</StatusBadge>
+                  <b>{run.huntLabel}</b>
+                </div>
+                <small>{time(run.startedAt)} · {run.triggerKind}</small>
+
+                <div className="connection-list">
+                  <div className="product-panel"><span>Raw signals</span><b>{run.rawSignals}</b></div>
+                  <div className="product-panel"><span>Rejected</span><b>{run.rejected}</b></div>
+                  <div className="product-panel"><span>Qualified</span><b>{run.qualified}</b></div>
+                  <div className="product-panel"><span>Enrichment needed</span><b>{run.enrichmentNeeded}</b></div>
+                  <div className="product-panel"><span>Published</span><b>{run.published}</b></div>
+                  <div className="product-panel"><span>Approval rate</span><b>{run.approvalRate == null ? "—" : `${run.approvalRate}%`}</b></div>
+                  <div className="product-panel"><span>External cost</span><b>{money(run.externalCost)}</b></div>
+                  <div className="product-panel"><span>AI calls</span><b>{run.aiCalls}</b></div>
+                  <div className="product-panel"><span>Estimated tokens</span><b>{run.estimatedTokens.toLocaleString("en-US")}</b></div>
+                </div>
+
+                <p>
+                  Client: {run.clientApproved} approved · {run.clientRejected} rejected · {run.clientOverridden} overridden
+                </p>
+
+                {reachedCandidates.length ? (
+                  <div className="product-panel">
+                    <b>Reached SkyShare</b>
+                    <ul>
+                      {reachedCandidates.map((candidate) => {
+                        const decisions = feedback.filter((item) => item.candidate_id === candidate.id && item.human_decision);
+                        return (
+                          <li key={candidate.id}>
+                            {candidate.person_name} · {candidate.supra_lead_id}
+                            {decisions.length ? ` · ${decisions.map((item) => item.human_decision === "override" ? `override → ${item.human_override}` : item.human_decision).join(", ")}` : " · no client decision yet"}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ) : <p>No candidate from this run has reached the client portal.</p>}
+
+                {Object.keys(run.rejectionBreakdown).length ? (
+                  <div className="product-panel">
+                    <b>Rejection breakdown</b>
+                    <ul>
+                      {Object.entries(run.rejectionBreakdown).map(([code, count]) => (
+                        <li key={code}>{reasonLabel(code)}: {count}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : <p>No rejection gates recorded for this run.</p>}
+
+                <details>
+                  <summary>Gate evidence ({runGates.length})</summary>
+                  <div className="action-list">
+                    {runGates.map((event) => (
+                      <article key={event.id}>
+                        <div><StatusBadge>{event.reason_code}</StatusBadge><b>{event.gate_kind}</b></div>
+                        <small>{time(event.created_at)}</small>
+                        <pre>{pretty(event.internal_evidence)}</pre>
+                      </article>
+                    ))}
+                  </div>
+                </details>
+
+                {run.error ? <p>{run.error}</p> : null}
+              </article>
+            );
+          })}
         </div>
       </section>
 
