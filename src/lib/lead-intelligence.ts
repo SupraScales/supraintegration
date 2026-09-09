@@ -1,11 +1,12 @@
 import "server-only";
 
 import { notFound } from "next/navigation";
-import { getPortalContext, requireEnabledPortalModule } from "@/lib/portal";
+import { requireEnabledPortalModule } from "@/lib/portal";
 import { requireHermesClient } from "@/lib/hermes";
 import { createClient } from "@/lib/supabase/server";
 
-export type LeadRating = "good" | "bad" | "whale";
+export type LeadRecommendation = "whale" | "good" | "bad";
+export type HumanDecision = "approve" | "reject" | "override";
 
 export type LeadCandidate = {
   id: string;
@@ -19,6 +20,9 @@ export type LeadCandidate = {
   geography: Record<string, unknown>;
   trigger_summary: string;
   event_date: string | null;
+  event_amount: number | null;
+  event_currency: string;
+  system_recommendation: LeadRecommendation | null;
   why_found: string;
   why_fit: string | null;
   business_footprint: string | null;
@@ -52,7 +56,8 @@ export type LeadFeedback = {
   id: string;
   candidate_id: string;
   user_id: string;
-  rating: LeadRating;
+  human_decision: HumanDecision | null;
+  human_override: LeadRecommendation | null;
   note: string | null;
   created_at: string;
   updated_at: string;
@@ -60,7 +65,10 @@ export type LeadFeedback = {
 
 export type LeadPrivateDetails = {
   candidate_id: string;
+  hunt_id: string | null;
+  signal_id: string | null;
   dedupe_key: string | null;
+  enrichment_needed: boolean;
   scoring_weights: Record<string, unknown>;
   prompt_material: Record<string, unknown>;
   internal_reasoning: string | null;
@@ -71,6 +79,9 @@ export type LeadPrivateDetails = {
   vendor_payloads: Record<string, unknown>;
 };
 
+const candidateSelect = "id, organization_id, supra_lead_id, source_hunt_key, source_hunt_label, person_name, company_name, role, geography, trigger_summary, event_date, event_amount, event_currency, system_recommendation, why_found, why_fit, business_footprint, known_facts, inferred_facts, unknown_facts, data_confidence, contact_confidence, whale_score, likely_product_fit, contact_email, contact_phone, status, publication_state, published_at, created_at";
+const feedbackSelect = "id, candidate_id, user_id, human_decision, human_override, note, created_at, updated_at";
+
 export async function getPortalLeadList() {
   const { access } = await requireEnabledPortalModule("lead_intelligence");
   const supabase = await createClient();
@@ -79,22 +90,18 @@ export async function getPortalLeadList() {
   const [{ data: candidateData }, { data: feedbackData }] = await Promise.all([
     supabase
       .from("lead_candidates")
-      .select("id, organization_id, supra_lead_id, source_hunt_key, source_hunt_label, person_name, company_name, role, geography, trigger_summary, event_date, why_found, why_fit, business_footprint, known_facts, inferred_facts, unknown_facts, data_confidence, contact_confidence, whale_score, likely_product_fit, contact_email, contact_phone, status, publication_state, published_at, created_at")
+      .select(candidateSelect)
       .eq("organization_id", access.organization.id)
       .order("event_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false }),
     supabase
       .from("lead_feedback")
-      .select("id, candidate_id, user_id, rating, note, created_at, updated_at")
+      .select(feedbackSelect)
       .eq("organization_id", access.organization.id)
       .eq("user_id", access.user.id),
   ]);
 
-  return {
-    access,
-    candidates: (candidateData ?? []) as LeadCandidate[],
-    feedback: (feedbackData ?? []) as LeadFeedback[],
-  };
+  return { access, candidates: (candidateData ?? []) as LeadCandidate[], feedback: (feedbackData ?? []) as LeadFeedback[] };
 }
 
 export async function getPortalLeadDetail(leadId: string) {
@@ -104,11 +111,10 @@ export async function getPortalLeadDetail(leadId: string) {
 
   const { data: candidateData } = await supabase
     .from("lead_candidates")
-    .select("id, organization_id, supra_lead_id, source_hunt_key, source_hunt_label, person_name, company_name, role, geography, trigger_summary, event_date, why_found, why_fit, business_footprint, known_facts, inferred_facts, unknown_facts, data_confidence, contact_confidence, whale_score, likely_product_fit, contact_email, contact_phone, status, publication_state, published_at, created_at")
+    .select(candidateSelect)
     .eq("id", leadId)
     .eq("organization_id", access.organization.id)
     .maybeSingle();
-
   if (!candidateData) notFound();
 
   const [{ data: evidenceData }, { data: feedbackData }] = await Promise.all([
@@ -120,7 +126,7 @@ export async function getPortalLeadDetail(leadId: string) {
       .order("created_at"),
     supabase
       .from("lead_feedback")
-      .select("id, candidate_id, user_id, rating, note, created_at, updated_at")
+      .select(feedbackSelect)
       .eq("candidate_id", leadId)
       .eq("user_id", access.user.id)
       .maybeSingle(),
@@ -137,32 +143,17 @@ export async function getPortalLeadDetail(leadId: string) {
 export async function getHermesLeadIntelligence(clientId: string) {
   const { client, supabase } = await requireHermesClient(clientId);
 
-  const [candidateResult, privateResult, evidenceResult, feedbackResult, huntResult] = await Promise.all([
-    supabase
-      .from("lead_candidates")
-      .select("id, organization_id, supra_lead_id, source_hunt_key, source_hunt_label, person_name, company_name, role, geography, trigger_summary, event_date, why_found, why_fit, business_footprint, known_facts, inferred_facts, unknown_facts, data_confidence, contact_confidence, whale_score, likely_product_fit, contact_email, contact_phone, status, publication_state, published_at, created_at")
-      .eq("organization_id", clientId)
-      .order("created_at", { ascending: false }),
+  const [candidateResult, privateResult, evidenceResult, feedbackResult, huntResult, signalResult, runResult] = await Promise.all([
+    supabase.from("lead_candidates").select(candidateSelect).eq("organization_id", clientId).order("created_at", { ascending: false }),
     supabase
       .from("lead_candidate_private_details")
-      .select("candidate_id, dedupe_key, scoring_weights, prompt_material, internal_reasoning, source_orchestration, model_internals, qualification_config, private_research, vendor_payloads")
+      .select("candidate_id, hunt_id, signal_id, dedupe_key, enrichment_needed, scoring_weights, prompt_material, internal_reasoning, source_orchestration, model_internals, qualification_config, private_research, vendor_payloads")
       .eq("organization_id", clientId),
-    supabase
-      .from("lead_evidence")
-      .select("id, candidate_id, label, source_url, evidence_type, summary, captured_at, client_visible")
-      .eq("organization_id", clientId)
-      .order("created_at"),
-    supabase
-      .from("lead_feedback")
-      .select("id, candidate_id, user_id, rating, note, created_at, updated_at")
-      .eq("organization_id", clientId)
-      .order("updated_at", { ascending: false }),
-    supabase
-      .from("lead_hunts")
-      .select("id, hunt_key, label, priority, enabled")
-      .eq("organization_id", clientId)
-      .order("priority")
-      .order("label"),
+    supabase.from("lead_evidence").select("id, candidate_id, label, source_url, evidence_type, summary, captured_at, client_visible").eq("organization_id", clientId).order("created_at"),
+    supabase.from("lead_feedback").select(feedbackSelect).eq("organization_id", clientId).order("updated_at", { ascending: false }),
+    supabase.from("lead_hunts").select("id, hunt_key, label, priority, enabled, configuration").eq("organization_id", clientId).order("priority").order("label"),
+    supabase.from("lead_signals").select("id, hunt_id, hunt_run_id, source_type, source_record_id, source_url, event_type, title, occurred_at, geography, normalized_payload, raw_payload, created_at").eq("organization_id", clientId).order("created_at", { ascending: false }).limit(100),
+    supabase.from("lead_hunt_runs").select("id, hunt_id, status, trigger_kind, summary, error, started_at, completed_at, created_at").eq("organization_id", clientId).order("created_at", { ascending: false }).limit(50),
   ]);
 
   return {
@@ -172,5 +163,7 @@ export async function getHermesLeadIntelligence(clientId: string) {
     evidence: (evidenceResult.data ?? []) as LeadEvidence[],
     feedback: (feedbackResult.data ?? []) as LeadFeedback[],
     hunts: huntResult.data ?? [],
+    signals: signalResult.data ?? [],
+    runs: runResult.data ?? [],
   };
 }
