@@ -29,6 +29,7 @@ export type HuntRunSummary = {
   qualified: number;
   enrichmentNeeded: number;
   published: number;
+  publishedCandidateIds: string[];
   clientApproved: number;
   clientRejected: number;
   clientOverridden: number;
@@ -85,6 +86,15 @@ export function summarizeHuntRuns(input: {
     const overridden = countDecision("override");
     const decisionCount = approved + rejected + overridden;
     const vendorRows = input.vendorUsage.filter((item) => String(item.hunt_run_id ?? "") === runId);
+    const publishedCandidateIds = Array.from(new Set(
+      gates
+        .filter((event) => event.reason_code === "published" && event.candidate_id)
+        .map((event) => event.candidate_id as string),
+    ));
+    const aiRows = vendorRows.filter((row) => {
+      const model = typeof row.model === "string" ? row.model.trim() : "";
+      return model.length > 0 || Number(row.input_tokens ?? 0) > 0 || Number(row.output_tokens ?? 0) > 0;
+    });
 
     return {
       id: runId,
@@ -98,14 +108,18 @@ export function summarizeHuntRuns(input: {
       rejected: gates.filter((event) => event.gate_kind === "rejection").length,
       qualified: gates.filter((event) => event.reason_code === "qualified").length,
       enrichmentNeeded: gates.filter((event) => event.reason_code === "enrichment_needed").length,
-      published: runCandidates.filter((candidate) => candidate.publication_state === "published").length,
+      published: publishedCandidateIds.length,
+      publishedCandidateIds,
       clientApproved: approved,
       clientRejected: rejected,
       clientOverridden: overridden,
       approvalRate: decisionCount ? Math.round((approved / decisionCount) * 1000) / 10 : null,
       externalCost: vendorRows.reduce((sum, row) => sum + Number(row.total_cost ?? 0), 0),
-      aiCalls: gates.reduce((sum, event) => sum + Number(event.model_calls ?? 0), 0),
-      estimatedTokens: gates.reduce((sum, event) => sum + Number(event.estimated_input_tokens ?? 0) + Number(event.estimated_output_tokens ?? 0), 0),
+      aiCalls: aiRows.length,
+      estimatedTokens: aiRows.reduce(
+        (sum, row) => sum + Number(row.input_tokens ?? 0) + Number(row.output_tokens ?? 0),
+        0,
+      ),
       rejectionBreakdown,
       error: run.error ? String(run.error) : null,
     };
