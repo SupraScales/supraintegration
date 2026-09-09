@@ -50,8 +50,15 @@ export function summarizeHuntRuns(input: {
   gateEvents: LeadGateEvent[];
   vendorUsage: Array<Record<string, unknown>>;
 }): HuntRunSummary[] {
-  const huntLabels = new Map(input.hunts.map((hunt) => [String(hunt.id), String(hunt.label)]));
-  const signalRun = new Map(input.signals.map((signal) => [String(signal.id), signal.hunt_run_id ? String(signal.hunt_run_id) : null]));
+  const huntLabels = new Map<string, string>(
+    input.hunts.map((hunt) => [String(hunt.id), String(hunt.label)] as const),
+  );
+  const signalRun = new Map<string, string | null>(
+    input.signals.map((signal) => [
+      String(signal.id),
+      signal.hunt_run_id ? String(signal.hunt_run_id) : null,
+    ] as const),
+  );
   const candidateRun = new Map<string, string>();
   for (const detail of input.privateDetails) {
     if (!detail.signal_id) continue;
