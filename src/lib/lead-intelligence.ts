@@ -68,6 +68,7 @@ export type LeadPrivateDetails = {
   hunt_id: string | null;
   signal_id: string | null;
   dedupe_key: string | null;
+  enrichment_needed: boolean;
   scoring_weights: Record<string, unknown>;
   prompt_material: Record<string, unknown>;
   internal_reasoning: string | null;
@@ -100,11 +101,7 @@ export async function getPortalLeadList() {
       .eq("user_id", access.user.id),
   ]);
 
-  return {
-    access,
-    candidates: (candidateData ?? []) as LeadCandidate[],
-    feedback: (feedbackData ?? []) as LeadFeedback[],
-  };
+  return { access, candidates: (candidateData ?? []) as LeadCandidate[], feedback: (feedbackData ?? []) as LeadFeedback[] };
 }
 
 export async function getPortalLeadDetail(leadId: string) {
@@ -118,7 +115,6 @@ export async function getPortalLeadDetail(leadId: string) {
     .eq("id", leadId)
     .eq("organization_id", access.organization.id)
     .maybeSingle();
-
   if (!candidateData) notFound();
 
   const [{ data: evidenceData }, { data: feedbackData }] = await Promise.all([
@@ -148,43 +144,16 @@ export async function getHermesLeadIntelligence(clientId: string) {
   const { client, supabase } = await requireHermesClient(clientId);
 
   const [candidateResult, privateResult, evidenceResult, feedbackResult, huntResult, signalResult, runResult] = await Promise.all([
-    supabase
-      .from("lead_candidates")
-      .select(candidateSelect)
-      .eq("organization_id", clientId)
-      .order("created_at", { ascending: false }),
+    supabase.from("lead_candidates").select(candidateSelect).eq("organization_id", clientId).order("created_at", { ascending: false }),
     supabase
       .from("lead_candidate_private_details")
-      .select("candidate_id, hunt_id, signal_id, dedupe_key, scoring_weights, prompt_material, internal_reasoning, source_orchestration, model_internals, qualification_config, private_research, vendor_payloads")
+      .select("candidate_id, hunt_id, signal_id, dedupe_key, enrichment_needed, scoring_weights, prompt_material, internal_reasoning, source_orchestration, model_internals, qualification_config, private_research, vendor_payloads")
       .eq("organization_id", clientId),
-    supabase
-      .from("lead_evidence")
-      .select("id, candidate_id, label, source_url, evidence_type, summary, captured_at, client_visible")
-      .eq("organization_id", clientId)
-      .order("created_at"),
-    supabase
-      .from("lead_feedback")
-      .select(feedbackSelect)
-      .eq("organization_id", clientId)
-      .order("updated_at", { ascending: false }),
-    supabase
-      .from("lead_hunts")
-      .select("id, hunt_key, label, priority, enabled, configuration")
-      .eq("organization_id", clientId)
-      .order("priority")
-      .order("label"),
-    supabase
-      .from("lead_signals")
-      .select("id, hunt_id, hunt_run_id, source_type, source_record_id, source_url, event_type, title, occurred_at, geography, normalized_payload, raw_payload, created_at")
-      .eq("organization_id", clientId)
-      .order("created_at", { ascending: false })
-      .limit(100),
-    supabase
-      .from("lead_hunt_runs")
-      .select("id, hunt_id, status, trigger_kind, summary, error, started_at, completed_at, created_at")
-      .eq("organization_id", clientId)
-      .order("created_at", { ascending: false })
-      .limit(50),
+    supabase.from("lead_evidence").select("id, candidate_id, label, source_url, evidence_type, summary, captured_at, client_visible").eq("organization_id", clientId).order("created_at"),
+    supabase.from("lead_feedback").select(feedbackSelect).eq("organization_id", clientId).order("updated_at", { ascending: false }),
+    supabase.from("lead_hunts").select("id, hunt_key, label, priority, enabled, configuration").eq("organization_id", clientId).order("priority").order("label"),
+    supabase.from("lead_signals").select("id, hunt_id, hunt_run_id, source_type, source_record_id, source_url, event_type, title, occurred_at, geography, normalized_payload, raw_payload, created_at").eq("organization_id", clientId).order("created_at", { ascending: false }).limit(100),
+    supabase.from("lead_hunt_runs").select("id, hunt_id, status, trigger_kind, summary, error, started_at, completed_at, created_at").eq("organization_id", clientId).order("created_at", { ascending: false }).limit(50),
   ]);
 
   return {
