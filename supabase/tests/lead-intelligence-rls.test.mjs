@@ -1,5 +1,5 @@
-// RLS matrix for SkyShare Lead Intelligence Slice 1 + SEC POC review model.
-// Requires the Hermes foundation and both Lead Intelligence migrations on staging/dev.
+// RLS matrix for SkyShare Lead Intelligence + SEC POC + internal gate ledger.
+// Requires the Hermes foundation and all Lead Intelligence migrations on staging/dev.
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { readConfig } from "./config.mjs";
@@ -79,8 +79,8 @@ if (!readConfig().ok) {
     denied(await read(ctx.clients.clientAAdmin, "lead_candidates", (q) => q.eq("id", ctx.ids.publishedB)), "cross-tenant lead leaked");
   });
 
-  test("client cannot read private candidate details, hunts, signals, runs, or vendor costs", async () => {
-    for (const table of ["lead_candidate_private_details", "lead_hunts", "lead_signals", "lead_hunt_runs", "lead_vendor_usage"]) {
+  test("client cannot read private details, hunts, runs, gate ledger, or vendor costs", async () => {
+    for (const table of ["lead_candidate_private_details", "lead_hunts", "lead_signals", "lead_hunt_runs", "lead_gate_events", "lead_vendor_usage"]) {
       denied(await read(ctx.clients.clientAAdmin, table), `${table} leaked`);
     }
   });
@@ -127,8 +127,10 @@ if (!readConfig().ok) {
   test("internal member can read complete records and private details", async () => {
     const leads = await read(ctx.clients.internalMember, "lead_candidates");
     const privateDetails = await read(ctx.clients.internalMember, "lead_candidate_private_details");
+    const gates = await read(ctx.clients.internalMember, "lead_gate_events");
     assert.equal(leads.error, null); assert.ok(leads.data.length >= 3);
     assert.equal(privateDetails.error, null); assert.equal(privateDetails.data[0].dedupe_key, "private-dedupe-key");
+    assert.equal(gates.error, null);
   });
 
   test("internal admin can publish candidate with system recommendation", async () => {
