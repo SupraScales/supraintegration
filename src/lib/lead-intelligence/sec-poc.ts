@@ -8,15 +8,33 @@ const HUNT_KEY = "sec-insider-sale-5m";
 const HUNT_LABEL = "$5M+ Public-Company Insider Stock Sales";
 const MINIMUM_SALE_CENTS = BigInt("500000000");
 
+type GateReason =
+  | "raw_signal_seen"
+  | "below_threshold"
+  | "geography"
+  | "duplicate"
+  | "weak_qualification"
+  | "missing_beneficiary"
+  | "qualified"
+  | "enrichment_needed";
+
+type GateKind = "signal_seen" | "rejection" | "qualification" | "enrichment";
+
 export type SecHunterPocResult =
   | { outcome: "candidate_created" | "duplicate"; candidateId: string; recommendation: "whale" | "good" | "bad"; amount: number }
   | { outcome: "rejected"; reason: string; amount: number };
 
+function parseFailureReason(error: unknown): { code: "missing_beneficiary" | "weak_qualification"; message: string } {
+  const message = error instanceof Error ? error.message : "SEC filing could not be qualified.";
+  if (/missing issuer or reporting-owner identity/i.test(message)) {
+    return { code: "missing_beneficiary", message };
+  }
+  return { code: "weak_qualification", message };
+}
+
 export async function runSecHunterPoc(clientId: string, filingUrl: string): Promise<SecHunterPocResult> {
   const access = await requireInternalAdmin();
   const { supabase } = await requireHermesClient(clientId);
-  const parsed = await fetchAndParseSecForm4(filingUrl);
-  const draft = buildSecCandidateDraft(parsed);
 
   const { data: hunt, error: huntError } = await supabase.from("lead_hunts").upsert({
     organization_id: clientId,
@@ -24,7 +42,13 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
     label: HUNT_LABEL,
     priority: "p0",
     enabled: true,
-    configuration: { source: "sec_form_4", minimum_sale_usd: 5_000_000, transaction_code: "S", western11_required: true, model_policy: "deterministic_first" },
+    configuration: {
+      source: "sec_form_4",
+      minimum_sale_usd: 5_000_000,
+      transaction_code: "S",
+      western11_required: true,
+      model_policy: "deterministic_first",
+    },
     updated_by: access.user.id,
   }, { onConflict: "organization_id,hunt_key" }).select("id").single();
   if (huntError || !hunt) throw new Error("SEC hunt could not be initialized.");
@@ -39,7 +63,64 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
   }).select("id").single();
   if (runError || !run) throw new Error("SEC hunt run could not be created.");
 
+  async function recordGate(input: {
+    kind: GateKind;
+    reason: GateReason;
+    signalId?: string | null;
+    candidateId?: string | null;
+    evidence?: Record<string, unknown>;
+  }) {
+    const { error } = await supabase.from("lead_gate_events").insert({
+      organization_id: clientId,
+      hunt_id: hunt.id,
+      hunt_run_id: run.id,
+      signal_id: input.signalId ?? null,
+      candidate_id: input.candidateId ?? null,
+      gate_kind: input.kind,
+      reason_code: input.reason,
+      source_url: filingUrl,
+      internal_evidence: input.evidence ?? {},
+      model_calls: 0,
+      estimated_input_tokens: 0,
+      estimated_output_tokens: 0,
+    });
+    if (error) throw new Error(`Gate ledger could not record ${input.reason}.`);
+  }
+
+  await recordGate({
+    kind: "signal_seen",
+    reason: "raw_signal_seen",
+    evidence: { filing_url: filingUrl, source: "sec.gov", processing_level: 0 },
+  });
+
   try {
+    let parsed;
+    try {
+      parsed = await fetchAndParseSecForm4(filingUrl);
+    } catch (error) {
+      const rejection = parseFailureReason(error);
+      await recordGate({
+        kind: "rejection",
+        reason: rejection.code,
+        evidence: { filing_url: filingUrl, parser_error: rejection.message },
+      });
+      await supabase.from("lead_hunt_runs").update({
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        summary: {
+          raw_signals: 1,
+          rejected: 1,
+          qualified: 0,
+          rejection_reason: rejection.code,
+          model_calls: 0,
+          estimated_tokens: 0,
+          external_cost: 0,
+        },
+      }).eq("id", run.id).eq("organization_id", clientId);
+      return { outcome: "rejected", reason: rejection.message, amount: 0 };
+    }
+
+    const draft = buildSecCandidateDraft(parsed);
     const normalizedPayload = {
       issuer_cik: parsed.issuerCik,
       issuer_name: parsed.issuerName,
@@ -70,25 +151,93 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
       normalized_payload: normalizedPayload,
       raw_payload: {
         filing_url: parsed.filingUrl,
-        transactions: parsed.transactions.map((transaction) => ({ date: transaction.date, security_title: transaction.securityTitle, shares: transaction.shares, price_per_share: transaction.pricePerShare, value_cents: transaction.valueCents.toString() })),
+        transactions: parsed.transactions.map((transaction) => ({
+          date: transaction.date,
+          security_title: transaction.securityTitle,
+          shares: transaction.shares,
+          price_per_share: transaction.pricePerShare,
+          value_cents: transaction.valueCents.toString(),
+        })),
       },
     }).select("id").single();
     if (signalError || !signal) throw new Error("SEC signal could not be stored.");
 
     const thresholdPassed = parsed.totalSaleCents >= MINIMUM_SALE_CENTS;
-    if (!thresholdPassed || !parsed.westernRelevant) {
-      const reason = !thresholdPassed ? "Sale proceeds are below the $5M deterministic threshold." : "Western-11 relevance is not established by the reporting-owner address in the filing.";
-      await supabase.from("lead_hunt_runs").update({ status: "completed", completed_at: new Date().toISOString(), summary: { signals: 1, candidates: 0, rejected: 1, reason } }).eq("id", run.id).eq("organization_id", clientId);
+    if (!thresholdPassed) {
+      const reason = "Sale proceeds are below the $5M deterministic threshold.";
+      await recordGate({
+        kind: "rejection",
+        reason: "below_threshold",
+        signalId: signal.id,
+        evidence: {
+          sale_total_cents: parsed.totalSaleCents.toString(),
+          threshold_cents: MINIMUM_SALE_CENTS.toString(),
+          reporting_owner: parsed.reportingOwnerName,
+          issuer: parsed.issuerName,
+        },
+      });
+      await supabase.from("lead_hunt_runs").update({
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        summary: { raw_signals: 1, rejected: 1, qualified: 0, rejection_reason: "below_threshold", model_calls: 0, estimated_tokens: 0, external_cost: 0 },
+      }).eq("id", run.id).eq("organization_id", clientId);
       return { outcome: "rejected", reason, amount: draft.eventAmount };
     }
 
-    const { data: existing } = await supabase.from("lead_candidate_private_details").select("candidate_id").eq("organization_id", clientId).eq("dedupe_key", draft.dedupeKey).maybeSingle();
-    if (existing?.candidate_id) {
-      await supabase.from("lead_hunt_runs").update({ status: "completed", completed_at: new Date().toISOString(), summary: { signals: 1, candidates: 0, duplicates: 1 } }).eq("id", run.id).eq("organization_id", clientId);
-      return { outcome: "duplicate", candidateId: existing.candidate_id, recommendation: draft.systemRecommendation, amount: draft.eventAmount };
+    if (!parsed.westernRelevant) {
+      const reason = "Western-11 relevance is not established by the reporting-owner address in the filing.";
+      await recordGate({
+        kind: "rejection",
+        reason: "geography",
+        signalId: signal.id,
+        evidence: {
+          reporting_owner_state: parsed.reportingOwnerState,
+          reporting_owner_city: parsed.reportingOwnerCity,
+          western11_passed: false,
+          reporting_owner: parsed.reportingOwnerName,
+          issuer: parsed.issuerName,
+        },
+      });
+      await supabase.from("lead_hunt_runs").update({
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        summary: { raw_signals: 1, rejected: 1, qualified: 0, rejection_reason: "geography", model_calls: 0, estimated_tokens: 0, external_cost: 0 },
+      }).eq("id", run.id).eq("organization_id", clientId);
+      return { outcome: "rejected", reason, amount: draft.eventAmount };
     }
 
-    const ownerToken = (parsed.reportingOwnerCik ?? parsed.reportingOwnerName).replace(/[^a-zA-Z0-9]/g, "").slice(-10).toUpperCase();
+    const { data: existing } = await supabase
+      .from("lead_candidate_private_details")
+      .select("candidate_id")
+      .eq("organization_id", clientId)
+      .eq("dedupe_key", draft.dedupeKey)
+      .maybeSingle();
+
+    if (existing?.candidate_id) {
+      await recordGate({
+        kind: "rejection",
+        reason: "duplicate",
+        signalId: signal.id,
+        candidateId: existing.candidate_id,
+        evidence: { dedupe_key: draft.dedupeKey, existing_candidate_id: existing.candidate_id },
+      });
+      await supabase.from("lead_hunt_runs").update({
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        summary: { raw_signals: 1, rejected: 1, qualified: 0, rejection_reason: "duplicate", model_calls: 0, estimated_tokens: 0, external_cost: 0 },
+      }).eq("id", run.id).eq("organization_id", clientId);
+      return {
+        outcome: "duplicate",
+        candidateId: existing.candidate_id,
+        recommendation: draft.systemRecommendation,
+        amount: draft.eventAmount,
+      };
+    }
+
+    const ownerToken = (parsed.reportingOwnerCik ?? parsed.reportingOwnerName)
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .slice(-10)
+      .toUpperCase();
     const supraLeadId = `SEC-${parsed.ticker ?? "PUBLIC"}-${parsed.eventDate.replaceAll("-", "")}-${ownerToken}`;
 
     const { data: candidate, error: candidateError } = await supabase.from("lead_candidates").insert({
@@ -152,10 +301,54 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
     });
     if (evidenceError) throw new Error("SEC evidence could not be stored.");
 
-    await supabase.from("lead_hunt_runs").update({ status: "completed", completed_at: new Date().toISOString(), summary: { signals: 1, candidates: 1, recommendation: draft.systemRecommendation, model_calls: 0 } }).eq("id", run.id).eq("organization_id", clientId);
-    return { outcome: "candidate_created", candidateId: candidate.id, recommendation: draft.systemRecommendation, amount: draft.eventAmount };
+    await recordGate({
+      kind: "qualification",
+      reason: "qualified",
+      signalId: signal.id,
+      candidateId: candidate.id,
+      evidence: {
+        system_recommendation: draft.systemRecommendation,
+        deterministic_checks: draft.deterministicChecks,
+      },
+    });
+    await recordGate({
+      kind: "enrichment",
+      reason: "enrichment_needed",
+      signalId: signal.id,
+      candidateId: candidate.id,
+      evidence: {
+        reason: "Direct email and phone are not available from the Form 4 source.",
+        paid_enrichment_executed: false,
+      },
+    });
+
+    await supabase.from("lead_hunt_runs").update({
+      status: "completed",
+      completed_at: new Date().toISOString(),
+      summary: {
+        raw_signals: 1,
+        rejected: 0,
+        qualified: 1,
+        enrichment_needed: 1,
+        recommendation: draft.systemRecommendation,
+        model_calls: 0,
+        estimated_tokens: 0,
+        external_cost: 0,
+      },
+    }).eq("id", run.id).eq("organization_id", clientId);
+
+    return {
+      outcome: "candidate_created",
+      candidateId: candidate.id,
+      recommendation: draft.systemRecommendation,
+      amount: draft.eventAmount,
+    };
   } catch (error) {
-    await supabase.from("lead_hunt_runs").update({ status: "failed", completed_at: new Date().toISOString(), error: error instanceof Error ? error.message : "Unknown SEC hunter error" }).eq("id", run.id).eq("organization_id", clientId);
+    await supabase.from("lead_hunt_runs").update({
+      status: "failed",
+      completed_at: new Date().toISOString(),
+      error: error instanceof Error ? error.message : "Unknown SEC hunter error",
+    }).eq("id", run.id).eq("organization_id", clientId);
     throw error;
   }
 }
