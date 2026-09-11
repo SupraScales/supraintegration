@@ -1,5 +1,6 @@
 import "server-only";
 
+import { previewOperation } from "@/lib/preview-diagnostics";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -32,6 +33,10 @@ type MembershipRow = {
 };
 
 export async function getCurrentAccess(): Promise<CurrentAccess | null> {
+  return previewOperation("access.resolve", resolveCurrentAccess);
+}
+
+async function resolveCurrentAccess(): Promise<CurrentAccess | null> {
   const supabase = await createClient();
   if (!supabase) {
     return null;
@@ -39,16 +44,16 @@ export async function getCurrentAccess(): Promise<CurrentAccess | null> {
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await previewOperation("access.auth.getUser", () => supabase.auth.getUser());
 
   if (!user?.email) {
     return null;
   }
 
-  const { data: membershipData } = await supabase
+  const { data: membershipData } = await previewOperation("access.memberships", () => supabase
     .from("organization_memberships")
     .select("organization_id, role")
-    .eq("user_id", user.id);
+    .eq("user_id", user.id));
 
   const memberships = (membershipData ?? []) as MembershipRow[];
   if (memberships.length === 0) {
@@ -56,11 +61,11 @@ export async function getCurrentAccess(): Promise<CurrentAccess | null> {
   }
 
   const organizationIds = memberships.map((membership) => membership.organization_id);
-  const { data: organizationData } = await supabase
+  const { data: organizationData } = await previewOperation("access.organizations", () => supabase
     .from("organizations")
     .select("id, name, slug, kind, status")
     .in("id", organizationIds)
-    .eq("status", "active");
+    .eq("status", "active"));
 
   const organizations = (organizationData ?? []) as OrganizationSummary[];
   const selectedMembership =

@@ -1,3 +1,4 @@
+import { previewOperation } from "@/lib/preview-diagnostics";
 import {
   EmptyState,
   ProductPageHeader,
@@ -25,12 +26,16 @@ type ActionRow = {
 };
 
 export default async function PortalOverviewPage() {
+  return previewOperation("portal.overview.render", renderOverview);
+}
+
+async function renderOverview() {
   const { access } = await getPortalContext();
   const supabase = await createClient();
 
   const [kpiResult, actionResult, sourceResult] = supabase
     ? await Promise.all([
-        supabase
+        previewOperation("overview.kpis", () => supabase
           .from("kpi_definitions")
           .select(
             "id, label, format, date_range, comparison_enabled, current_value",
@@ -38,8 +43,8 @@ export default async function PortalOverviewPage() {
           .eq("organization_id", access.organization.id)
           .eq("enabled", true)
           .eq("client_visible", true)
-          .order("sort_order"),
-        supabase
+          .order("sort_order")),
+        previewOperation("overview.actions", () => supabase
           .from("action_items")
           .select(
             "id, title, priority, status, recommended_action, due_at",
@@ -47,11 +52,11 @@ export default async function PortalOverviewPage() {
           .eq("organization_id", access.organization.id)
           .eq("client_visible", true)
           .neq("status", "resolved")
-          .order("priority"),
-        supabase
+          .order("priority")),
+        previewOperation("overview.sources", () => supabase
           .from("data_source_connections")
           .select("id, status")
-          .eq("organization_id", access.organization.id),
+          .eq("organization_id", access.organization.id)),
       ])
     : [{ data: [] }, { data: [] }, { data: [] }];
 
