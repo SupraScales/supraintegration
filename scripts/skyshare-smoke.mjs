@@ -4,10 +4,10 @@ const started = performance.now();
 const url = process.env.SKYSHARE_STAGING_DATABASE_URL;
 if (!url) throw new Error('BLOCKED: set SKYSHARE_STAGING_DATABASE_URL; missing config is not a pass');
 const parsed = new URL(url);
-const ref = 'lbmadoyajrlzdtxyvkwi';
+const ref = 'ohfubawlvxbsivsqdgdv';
 const direct = parsed.hostname === `db.${ref}.supabase.co`;
 const pooler = parsed.hostname.endsWith('.pooler.supabase.com') && decodeURIComponent(parsed.username) === `postgres.${ref}`;
-if (!['postgres:', 'postgresql:'].includes(parsed.protocol) || (!direct && !pooler)) throw new Error('Refusing database outside supraintegration-staging');
+if (!['postgres:', 'postgresql:'].includes(parsed.protocol) || (!direct && !pooler)) throw new Error('Refusing database outside supraintegration-skyshare-demo');
 const result = spawnSync('psql', ['-X', '--set=ON_ERROR_STOP=1', '--file=supabase/tests/skyshare-smoke.sql'], {
   env: { ...process.env, PGDATABASE: url, PGSSLMODE: 'verify-full', PGCONNECT_TIMEOUT: '10' },
   stdio: 'inherit', timeout: 60000,
