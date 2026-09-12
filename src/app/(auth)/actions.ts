@@ -1,5 +1,6 @@
 "use server";
 
+import { previewEvent, previewOperation } from "@/lib/preview-diagnostics";
 import { z } from "zod";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -40,12 +41,16 @@ export async function signInAction(
     };
   }
 
-  const { error } = await supabase.auth.signInWithPassword(parsed.data);
+  const { data, error } = await previewOperation("login.signInWithPassword", () =>
+    supabase.auth.signInWithPassword(parsed.data));
+  previewEvent("login.session", data.session ? "present" : "absent");
   if (error) {
     return { status: "error", message: "Email or password was not recognized." };
   }
 
-  redirect(await getPostLoginPath());
+  const path = await previewOperation("login.postLoginPath", getPostLoginPath);
+  previewEvent("login.redirect", path);
+  redirect(path);
 }
 
 export async function requestPasswordResetAction(
