@@ -36,7 +36,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
         <div><span>System recommendation</span><b>{candidate.system_recommendation?.toUpperCase() ?? "PENDING"}</b></div>
         <div><span>Your decision</span><b>{decision}</b></div>
         <div><span>Trigger</span><b>{candidate.trigger_summary}</b></div>
-        <div><span>Transaction / event amount</span><b>{money(candidate.event_amount, candidate.event_currency)}</b></div>
+        <div><span>{candidate.source_hunt_key === "sec-8k-western-founder-mna-100m" ? "Company transaction value" : "Transaction / event amount"}</span><b>{money(candidate.event_amount, candidate.event_currency)}</b></div>
         <div><span>Event date</span><b>{candidate.event_date ?? "Unknown"}</b></div>
         <div><span>Source hunt</span><b>{candidate.source_hunt_label}</b></div>
         <div><span>Data confidence</span><b>{candidate.data_confidence == null ? "—" : `${candidate.data_confidence}%`}</b></div>

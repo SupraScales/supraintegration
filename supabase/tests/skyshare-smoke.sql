@@ -10,7 +10,8 @@ select set_config('skyshare_smoke.client_user_id',(select id::text from auth.use
 select set_config('skyshare_smoke.internal_user_id',(select id::text from auth.users where email='hermesdemo@supraintegration.ai'),true);
 select pg_temp.check_ok((select count(*)=1 from organization_memberships where user_id=current_setting('skyshare_smoke.client_user_id')::uuid) and exists(select 1 from organization_memberships where user_id=current_setting('skyshare_smoke.client_user_id')::uuid and organization_id='85ded2c8-d4b0-4109-b3c0-ef8c15ab4922' and role='client_member' and status='active'), 'client has only expected membership');
 select pg_temp.check_ok((select count(*)=1 from organization_memberships where user_id=current_setting('skyshare_smoke.internal_user_id')::uuid) and exists(select 1 from organization_memberships where user_id=current_setting('skyshare_smoke.internal_user_id')::uuid and organization_id='2540997c-7bbb-4430-a431-729fc258f431' and role='internal_admin' and status='active'), 'internal user has only expected membership');
--- No hunt, user, membership or configuration creation. Reuse the SEC hunt.
+-- No user, membership or persistent configuration creation. Reuse Hunt #1 and
+-- create/reuse a rollback-only Hunt #2 contract fixture.
 set local role authenticated;
 select set_config('request.jwt.claims',jsonb_build_object('sub',current_setting('skyshare_smoke.internal_user_id'),'role','authenticated')::text,true);
 select pg_temp.check_ok(exists(select 1 from lead_hunts where id='1d38483b-e5da-41cd-a5c0-6ecf5081060e'), 'internal access to SEC hunt');
@@ -22,9 +23,32 @@ insert into lead_evidence(organization_id,candidate_id,label,client_visible) val
 insert into lead_gate_events(organization_id,hunt_id,hunt_run_id,signal_id,candidate_id,gate_kind,reason_code)
 select '85ded2c8-d4b0-4109-b3c0-ef8c15ab4922','1d38483b-e5da-41cd-a5c0-6ecf5081060e','eeeeeeee-0000-4000-8000-000000000001','eeeeeeee-0000-4000-8000-000000000002','eeeeeeee-0000-4000-8000-000000000003',kind,reason from (values('signal_seen','raw_signal_seen'),('qualification','qualified'),('enrichment','enrichment_needed')) as gates(kind,reason);
 update lead_hunt_runs set status='completed',completed_at=now() where id='eeeeeeee-0000-4000-8000-000000000001';
+insert into lead_hunts(id,organization_id,hunt_key,label,priority,configuration,created_by,updated_by)
+values('eeeeeeee-0000-4000-8000-000000000005','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922','sec-8k-western-founder-mna-100m','$100M+ Western Founder M&A Completions','p0','{"source":"sec_form_8k","minimum_company_transaction_usd":100000000,"model_policy":"deterministic_only"}',current_setting('skyshare_smoke.internal_user_id')::uuid,current_setting('skyshare_smoke.internal_user_id')::uuid)
+on conflict(organization_id,hunt_key) do nothing;
+select set_config('skyshare_smoke.hunt2_id',(select id::text from lead_hunts where organization_id='85ded2c8-d4b0-4109-b3c0-ef8c15ab4922' and hunt_key='sec-8k-western-founder-mna-100m'),true);
+insert into lead_hunt_runs(id,organization_id,hunt_id,status,trigger_kind) values('eeeeeeee-0000-4000-8000-000000000006','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922',current_setting('skyshare_smoke.hunt2_id')::uuid,'running','manual');
+insert into lead_signals(id,organization_id,hunt_id,hunt_run_id,source_type,source_record_id,source_url,event_type,title,occurred_at,normalized_payload,raw_payload)
+values('eeeeeeee-0000-4000-8000-000000000007','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922',current_setting('skyshare_smoke.hunt2_id')::uuid,'eeeeeeee-0000-4000-8000-000000000006','sec_form_8k','sec-8k-mna:0001193125-25-060947:endeavor-group-holdings-inc:2025-03-24','https://www.sec.gov/Archives/edgar/data/1766363/000119312525060947/0001193125-25-060947-index.htm','completed_founder_mna','Ariel Emanuel — Endeavor Group Holdings, Inc.','2025-03-24T00:00:00Z','{"company_transaction_value_cents":"2500000000000","western11":true,"model_calls":0}','{"PRIVATE_HUNT2_PARSER_EXCERPT":true}');
+insert into lead_candidates(id,organization_id,supra_lead_id,source_hunt_key,source_hunt_label,person_name,company_name,role,geography,trigger_summary,event_date,event_amount,event_currency,system_recommendation,why_found,why_fit,known_facts,unknown_facts,data_confidence,whale_score,likely_product_fit,status)
+values('eeeeeeee-0000-4000-8000-000000000008','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922','MNA-SMOKE-ROLLBACK','sec-8k-western-founder-mna-100m','$100M+ Western Founder M&A Completions','Ariel Emanuel','Endeavor Group Holdings, Inc.','Executive Chairman of WME Group','{"city":"Beverly Hills","state":"CA","western11":true,"basis":"principal_executive_offices"}','Completed operating-company transaction with a disclosed company transaction value of $25,000,000,000','2025-03-24',25000000000,'USD','whale','Deterministic Item 2.01 completion fixture','Company value is not personal proceeds; private-aviation need remains unverified.','["Explicit founder status","Explicit equity rollover","California principal offices"]','["Personal proceeds unknown","Direct contact data unknown"]',98,95,'OpenJet — requires travel-pattern validation','qualified');
+insert into lead_candidate_private_details(candidate_id,organization_id,hunt_id,signal_id,dedupe_key,enrichment_needed,internal_reasoning,source_orchestration,model_internals,private_research)
+values('eeeeeeee-0000-4000-8000-000000000008','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922',current_setting('skyshare_smoke.hunt2_id')::uuid,'eeeeeeee-0000-4000-8000-000000000007','mna:ariel-emanuel:endeavor-group-holdings-inc:2025-03-24',true,'PRIVATE_HUNT2_REASONING','{"adapter":"form8k_item201_manual"}','{"model_calls":0,"estimated_input_tokens":0,"estimated_output_tokens":0}','{"personal_proceeds":"unknown_not_inferred"}');
+insert into lead_evidence(organization_id,candidate_id,label,source_url,summary,client_visible)
+values
+('85ded2c8-d4b0-4109-b3c0-ef8c15ab4922','eeeeeeee-0000-4000-8000-000000000008','SEC Form 8-K — completed Item 2.01 transaction','https://www.sec.gov/Archives/edgar/data/1766363/000119312525060947/d897469d8k.htm','Completed transaction and California principal-office evidence.',true),
+('85ded2c8-d4b0-4109-b3c0-ef8c15ab4922','eeeeeeee-0000-4000-8000-000000000008','PRIVATE_HUNT2_EVIDENCE',null,'Raw parser evidence stays internal.',false);
+insert into lead_gate_events(organization_id,hunt_id,hunt_run_id,signal_id,candidate_id,gate_kind,reason_code,internal_evidence)
+select '85ded2c8-d4b0-4109-b3c0-ef8c15ab4922',current_setting('skyshare_smoke.hunt2_id')::uuid,'eeeeeeee-0000-4000-8000-000000000006','eeeeeeee-0000-4000-8000-000000000007','eeeeeeee-0000-4000-8000-000000000008',kind,reason,evidence::jsonb from (values
+('signal_seen','raw_signal_seen','{"reason":"official_sec_filing_seen"}'),
+('qualification','qualified','{"reason":"all_hard_gates_passed","system_recommendation":"whale"}'),
+('enrichment','enrichment_needed','{"reason":"direct_contact_data_absent","paid_enrichment_executed":false}')
+) as gates(kind,reason,evidence);
+update lead_hunt_runs set status='completed',completed_at=now(),summary='{"raw_signals":1,"qualified":1,"external_cost":0,"model_calls":0,"estimated_tokens":0,"paid_vendor_usage":0}' where id='eeeeeeee-0000-4000-8000-000000000006';
 insert into lead_candidates(id,organization_id,supra_lead_id,source_hunt_key,source_hunt_label,person_name,trigger_summary,why_found,system_recommendation,publication_state,published_at,published_by) values('eeeeeeee-0000-4000-8000-000000000004','2540997c-7bbb-4430-a431-729fc258f431','SMOKE-OTHER-TENANT','sec_insider_sales_5m','SEC smoke fixture','Other tenant sentinel','Fixture','Isolation check','whale','published',now(),current_setting('skyshare_smoke.internal_user_id')::uuid);
 select set_config('request.jwt.claims',jsonb_build_object('sub',current_setting('skyshare_smoke.client_user_id'),'role','authenticated')::text,true);
 select pg_temp.check_ok(not exists(select 1 from lead_candidates where id='eeeeeeee-0000-4000-8000-000000000003'), 'unpublished hidden');
+select pg_temp.check_ok(not exists(select 1 from lead_candidates where id='eeeeeeee-0000-4000-8000-000000000008'), 'unpublished Hunt #2 candidate hidden');
 select pg_temp.check_ok(not exists(select 1 from lead_candidates where id='eeeeeeee-0000-4000-8000-000000000004'), 'other tenant published candidate hidden');
 do $$ declare target uuid; begin
 foreach target in array array['eeeeeeee-0000-4000-8000-000000000003'::uuid,'eeeeeeee-0000-4000-8000-000000000004'::uuid] loop
@@ -39,9 +63,12 @@ select pg_temp.check_ok(exists(select 1 from lead_candidates where id='627f2b97-
 select pg_temp.check_ok(exists(select 1 from lead_evidence where candidate_id='627f2b97-b750-4422-a701-19a52e2ebaf3' and client_visible), 'existing SEC evidence visible');
 select set_config('request.jwt.claims',jsonb_build_object('sub',current_setting('skyshare_smoke.internal_user_id'),'role','authenticated')::text,true);
 update lead_candidates set publication_state='published',published_at=now(),published_by=current_setting('skyshare_smoke.internal_user_id')::uuid where id='eeeeeeee-0000-4000-8000-000000000003';
+update lead_candidates set publication_state='published',published_at=now(),published_by=current_setting('skyshare_smoke.internal_user_id')::uuid where id='eeeeeeee-0000-4000-8000-000000000008';
 select set_config('request.jwt.claims',jsonb_build_object('sub',current_setting('skyshare_smoke.client_user_id'),'role','authenticated')::text,true);
 select pg_temp.check_ok(exists(select 1 from lead_candidates where id='eeeeeeee-0000-4000-8000-000000000003'), 'published visible');
 select pg_temp.check_ok((select count(*)=1 from lead_evidence where candidate_id='eeeeeeee-0000-4000-8000-000000000003'), 'only public evidence visible');
+select pg_temp.check_ok(exists(select 1 from lead_candidates where id='eeeeeeee-0000-4000-8000-000000000008' and source_hunt_key='sec-8k-western-founder-mna-100m' and system_recommendation='whale' and event_amount=25000000000), 'published Hunt #2 WHALE visible with company transaction value');
+select pg_temp.check_ok((select count(*)=1 from lead_evidence where candidate_id='eeeeeeee-0000-4000-8000-000000000008' and client_visible), 'only client-safe Hunt #2 evidence visible');
 do $$ declare t text; n integer; begin
 foreach t in array array['lead_signals','lead_hunts','lead_hunt_runs','lead_candidate_private_details','lead_gate_events','lead_vendor_usage'] loop
 execute format('select count(*) from public.%I',t) into n;
@@ -65,6 +92,8 @@ select pg_temp.check_ok(exists(select 1 from lead_candidates where id='eeeeeeee-
 select set_config('request.jwt.claims',jsonb_build_object('sub',current_setting('skyshare_smoke.internal_user_id'),'role','authenticated')::text,true);
 select pg_temp.check_ok(exists(select 1 from lead_feedback where candidate_id='eeeeeeee-0000-4000-8000-000000000003' and human_decision='override' and human_override='good'), 'Hermes role reads final client response');
 select pg_temp.check_ok((select count(*)=7 and count(distinct reason_code)=7 and sum(model_calls)=0 and sum(estimated_input_tokens+estimated_output_tokens)=0 from lead_gate_events where hunt_run_id='eeeeeeee-0000-4000-8000-000000000001'), 'seven attributed gates; zero model usage');
+select pg_temp.check_ok((select count(*)=4 and count(distinct reason_code)=4 and sum(model_calls)=0 and sum(estimated_input_tokens+estimated_output_tokens)=0 from lead_gate_events where hunt_run_id='eeeeeeee-0000-4000-8000-000000000006'), 'Hunt #2 signal, qualification, enrichment, and publication gates; zero model usage');
+select pg_temp.check_ok((select count(*)=1 from lead_candidate_private_details where candidate_id='eeeeeeee-0000-4000-8000-000000000008' and dedupe_key='mna:ariel-emanuel:endeavor-group-holdings-inc:2025-03-24'), 'Hunt #2 deterministic candidate/event key stored once');
 do $$ declare n integer; begin
 update lead_gate_events set internal_evidence='{"forged":true}' where hunt_run_id='eeeeeeee-0000-4000-8000-000000000001'; get diagnostics n=row_count; perform pg_temp.check_ok(n=0,'gate update denied');
 delete from lead_gate_events where hunt_run_id='eeeeeeee-0000-4000-8000-000000000001'; get diagnostics n=row_count; perform pg_temp.check_ok(n=0,'gate delete denied');
@@ -75,4 +104,4 @@ exception when raise_exception then if SQLERRM not like 'Paid/API model usage re
 end $$;
 select pg_temp.check_ok(not exists(select 1 from lead_vendor_usage where organization_id='85ded2c8-d4b0-4109-b3c0-ef8c15ab4922'), 'zero vendor rows and cost');
 rollback;
-select 'PASS: demo database contract; all fixture changes rolled back; browser interactions not asserted' as result;
+select 'PASS: Hunt #1 + Hunt #2 demo database contract; all fixture changes rolled back; browser interactions not asserted' as result;

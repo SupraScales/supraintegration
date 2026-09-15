@@ -1,6 +1,6 @@
 import { ProductPageHeader, StatusBadge } from "@/components/product-shell";
 import { getHermesLeadIntelligence } from "@/lib/lead-intelligence";
-import { runSecPocAction, updateLeadCandidateState } from "@/app/hermes/clients/[clientId]/lead-intelligence/actions";
+import { runSecMnaAction, runSecPocAction, updateLeadCandidateState } from "@/app/hermes/clients/[clientId]/lead-intelligence/actions";
 
 function pretty(value: unknown) {
   return JSON.stringify(value ?? {}, null, 2);
@@ -42,6 +42,7 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
   const privateByCandidate = new Map(privateDetails.map((item) => [item.candidate_id, item]));
   const candidateById = new Map(candidates.map((candidate) => [candidate.id, candidate]));
   const runSec = runSecPocAction.bind(null, clientId);
+  const runSecMna = runSecMnaAction.bind(null, clientId);
 
   return (
     <>
@@ -63,6 +64,20 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
           </label>
           <p>Level 0 deterministic processing only: transaction parsing, math, $5M threshold, Western-11 check, dedupe, and initial recommendation. No paid API and no model call.</p>
           <button type="submit">Run SEC hunter</button>
+        </form>
+      </section>
+
+      <section className="product-section">
+        <div className="product-section-heading">
+          <div><p className="product-kicker"><span aria-hidden />SEC Hunt #2</p><h2>Run one completed founder M&A filing</h2></div>
+        </div>
+        <form action={runSecMna} className="product-panel">
+          <label>
+            <span>Official SEC Form 8-K filing or index URL</span>
+            <input name="mna_filing_url" type="url" required placeholder="https://www.sec.gov/Archives/edgar/data/.../...-index.htm" />
+          </label>
+          <p>Deterministic Item 2.01 completion, $100M company-value, operating-company, founder/economic-link, Western-11, and dedupe gates. No paid API and no model call.</p>
+          <button type="submit">Run M&amp;A hunter</button>
         </form>
       </section>
 
@@ -198,7 +213,7 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
                   <b>{candidate.person_name}</b>
                 </div>
                 <p>{candidate.company_name ?? "Company unknown"}{candidate.role ? ` · ${candidate.role}` : ""}</p>
-                <p>{candidate.trigger_summary} · {money(candidate.event_amount, candidate.event_currency)}</p>
+                <p>{candidate.trigger_summary} · {candidate.source_hunt_key === "sec-8k-western-founder-mna-100m" ? "Company transaction value" : "Event amount"}: {money(candidate.event_amount, candidate.event_currency)}</p>
                 <small>{candidate.supra_lead_id} · {candidate.source_hunt_label}</small>
 
                 <form action={action} className="product-panel">
