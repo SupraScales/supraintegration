@@ -27,33 +27,38 @@ type ActionRow = {
 export default async function PortalOverviewPage() {
   const { access } = await getPortalContext();
   const supabase = await createClient();
+  if (!supabase) {
+    throw new Error("Portal data is not configured.");
+  }
 
-  const [kpiResult, actionResult, sourceResult] = supabase
-    ? await Promise.all([
-        supabase
-          .from("kpi_definitions")
-          .select(
-            "id, label, format, date_range, comparison_enabled, current_value",
-          )
-          .eq("organization_id", access.organization.id)
-          .eq("enabled", true)
-          .eq("client_visible", true)
-          .order("sort_order"),
-        supabase
-          .from("action_items")
-          .select(
-            "id, title, priority, status, recommended_action, due_at",
-          )
-          .eq("organization_id", access.organization.id)
-          .eq("client_visible", true)
-          .neq("status", "resolved")
-          .order("priority"),
-        supabase
-          .from("data_source_connections")
-          .select("id, status")
-          .eq("organization_id", access.organization.id),
-      ])
-    : [{ data: [] }, { data: [] }, { data: [] }];
+  const [kpiResult, actionResult, sourceResult] = await Promise.all([
+    supabase
+      .from("kpi_definitions")
+      .select(
+        "id, label, format, date_range, comparison_enabled, current_value",
+      )
+      .eq("organization_id", access.organization.id)
+      .eq("enabled", true)
+      .eq("client_visible", true)
+      .order("sort_order"),
+    supabase
+      .from("action_items")
+      .select(
+        "id, title, priority, status, recommended_action, due_at",
+      )
+      .eq("organization_id", access.organization.id)
+      .eq("client_visible", true)
+      .neq("status", "resolved")
+      .order("priority"),
+    supabase
+      .from("data_source_connections")
+      .select("id, status")
+      .eq("organization_id", access.organization.id),
+  ]);
+
+  if (kpiResult.error || actionResult.error || sourceResult.error) {
+    throw new Error("Portal overview data could not be loaded.");
+  }
 
   const kpis = (kpiResult.data ?? []) as KpiRow[];
   const actions = (actionResult.data ?? []) as ActionRow[];
