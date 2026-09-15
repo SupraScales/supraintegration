@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireInternalAdmin } from "@/lib/auth";
 import { requireHermesClient } from "@/lib/hermes";
 import { runSecHunterPoc } from "@/lib/lead-intelligence/sec-poc";
+import { runSecMnaHunter } from "@/lib/lead-intelligence/sec-mna-poc";
 
 const candidateStateSchema = z.object({
   status: z.enum(["new", "qualified", "archived"]),
@@ -53,5 +54,15 @@ export async function runSecPocAction(clientId: string, formData: FormData): Pro
   if (!parsed.success) throw new Error("Enter a valid official SEC Form 4 XML URL.");
 
   await runSecHunterPoc(clientId, parsed.data.filingUrl);
+  revalidatePath(`/hermes/clients/${clientId}/lead-intelligence`);
+}
+
+export async function runSecMnaAction(clientId: string, formData: FormData): Promise<void> {
+  const parsed = z.object({
+    filingUrl: z.string().url().refine((value) => value.startsWith("https://www.sec.gov/Archives/edgar/"), "Use an official SEC EDGAR URL."),
+  }).safeParse({ filingUrl: formData.get("mna_filing_url") });
+  if (!parsed.success) throw new Error("Enter a valid official SEC Form 8-K filing or index URL.");
+
+  await runSecMnaHunter(clientId, parsed.data.filingUrl);
   revalidatePath(`/hermes/clients/${clientId}/lead-intelligence`);
 }
