@@ -1,6 +1,5 @@
 import "server-only";
 
-import { previewOperation } from "@/lib/preview-diagnostics";
 import { notFound } from "next/navigation";
 import { requireAccess } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -23,22 +22,23 @@ export function portalModulePath(moduleKey: PortalModuleKey): string {
 }
 
 export async function getPortalContext() {
-  return previewOperation("portal.context", resolvePortalContext);
-}
-
-async function resolvePortalContext() {
   const access = await requireAccess("client");
   const supabase = await createClient();
+  if (!supabase) {
+    throw new Error("Portal access is not configured.");
+  }
 
-  const { data } = supabase
-    ? await previewOperation("portal.modules", () => supabase
-        .from("portal_modules")
-        .select("module_key, label, sort_order")
-        .eq("organization_id", access.organization.id)
-        .eq("enabled", true)
-        .eq("client_visible", true)
-        .order("sort_order"))
-    : { data: [] };
+  const { data, error } = await supabase
+    .from("portal_modules")
+    .select("module_key, label, sort_order")
+    .eq("organization_id", access.organization.id)
+    .eq("enabled", true)
+    .eq("client_visible", true)
+    .order("sort_order");
+
+  if (error) {
+    throw new Error("Portal modules could not be loaded.");
+  }
 
   return {
     access,

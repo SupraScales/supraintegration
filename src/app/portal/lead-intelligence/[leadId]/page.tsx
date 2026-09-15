@@ -98,7 +98,11 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
             <input type="hidden" name="human_decision" value="override" />
             <label>
               <span>Override recommendation</span>
-              <select name="human_override" defaultValue={feedback?.human_override ?? candidate.system_recommendation ?? "good"}>
+              <select
+                key={feedback?.human_override ?? candidate.system_recommendation ?? "good"}
+                name="human_override"
+                defaultValue={feedback?.human_override ?? candidate.system_recommendation ?? "good"}
+              >
                 <option value="whale">Whale</option>
                 <option value="good">Good</option>
                 <option value="bad">Bad</option>

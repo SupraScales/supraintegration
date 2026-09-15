@@ -1,6 +1,5 @@
 import "server-only";
 
-import { previewOperation } from "@/lib/preview-diagnostics";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -33,10 +32,6 @@ type MembershipRow = {
 };
 
 export async function getCurrentAccess(): Promise<CurrentAccess | null> {
-  return previewOperation("access.resolve", resolveCurrentAccess);
-}
-
-async function resolveCurrentAccess(): Promise<CurrentAccess | null> {
   const supabase = await createClient();
   if (!supabase) {
     return null;
@@ -44,16 +39,25 @@ async function resolveCurrentAccess(): Promise<CurrentAccess | null> {
 
   const {
     data: { user },
-  } = await previewOperation("access.auth.getUser", () => supabase.auth.getUser());
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError && userError.name !== "AuthSessionMissingError") {
+    throw new Error("Access session could not be verified.");
+  }
 
   if (!user?.email) {
     return null;
   }
 
-  const { data: membershipData } = await previewOperation("access.memberships", () => supabase
+  const { data: membershipData, error: membershipError } = await supabase
     .from("organization_memberships")
     .select("organization_id, role")
-    .eq("user_id", user.id));
+    .eq("user_id", user.id);
+
+  if (membershipError) {
+    throw new Error("Organization membership could not be resolved.");
+  }
 
   const memberships = (membershipData ?? []) as MembershipRow[];
   if (memberships.length === 0) {
@@ -61,11 +65,15 @@ async function resolveCurrentAccess(): Promise<CurrentAccess | null> {
   }
 
   const organizationIds = memberships.map((membership) => membership.organization_id);
-  const { data: organizationData } = await previewOperation("access.organizations", () => supabase
+  const { data: organizationData, error: organizationError } = await supabase
     .from("organizations")
     .select("id, name, slug, kind, status")
     .in("id", organizationIds)
-    .eq("status", "active"));
+    .eq("status", "active");
+
+  if (organizationError) {
+    throw new Error("Organization access could not be resolved.");
+  }
 
   const organizations = (organizationData ?? []) as OrganizationSummary[];
   const selectedMembership =

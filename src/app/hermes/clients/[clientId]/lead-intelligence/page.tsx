@@ -202,8 +202,8 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
                 <small>{candidate.supra_lead_id} · {candidate.source_hunt_label}</small>
 
                 <form action={action} className="product-panel">
-                  <label><span>Status</span><select name="status" defaultValue={candidate.status}><option value="new">New</option><option value="qualified">Qualified</option><option value="archived">Archived</option></select></label>
-                  <label><span>Publication</span><select name="publication_state" defaultValue={candidate.publication_state}><option value="unpublished">Unpublished</option><option value="published">Published</option></select></label>
+                  <label><span>Status</span><select key={candidate.status} name="status" defaultValue={candidate.status}><option value="new">New</option><option value="qualified">Qualified</option><option value="archived">Archived</option></select></label>
+                  <label><span>Publication</span><select key={candidate.publication_state} name="publication_state" defaultValue={candidate.publication_state}><option value="unpublished">Unpublished</option><option value="published">Published</option></select></label>
                   <button type="submit">Save state</button>
                 </form>
 
