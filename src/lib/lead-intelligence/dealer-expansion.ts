@@ -33,4 +33,3 @@ export async function fetchAndParseDealerExpansion(eventUrl: string, ownershipUr
     runDate: new Date().toISOString().slice(0, 10),
   });
 }
-

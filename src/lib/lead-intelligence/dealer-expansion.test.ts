@@ -153,4 +153,3 @@ test("qualified 2-4 location footprint scores GOOD", () => {
   assert.equal(draft.systemRecommendation, "good");
   assert.equal(draft.whaleScore, 78);
 });
-
