@@ -1,6 +1,6 @@
 import { ProductPageHeader, StatusBadge } from "@/components/product-shell";
 import { getHermesLeadIntelligence } from "@/lib/lead-intelligence";
-import { runSecMnaAction, runSecPocAction, updateLeadCandidateState } from "@/app/hermes/clients/[clientId]/lead-intelligence/actions";
+import { runDealerExpansionAction, runSecMnaAction, runSecPocAction, updateLeadCandidateState } from "@/app/hermes/clients/[clientId]/lead-intelligence/actions";
 
 function pretty(value: unknown) {
   return JSON.stringify(value ?? {}, null, 2);
@@ -43,6 +43,7 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
   const candidateById = new Map(candidates.map((candidate) => [candidate.id, candidate]));
   const runSec = runSecPocAction.bind(null, clientId);
   const runSecMna = runSecMnaAction.bind(null, clientId);
+  const runDealerExpansion = runDealerExpansionAction.bind(null, clientId);
 
   return (
     <>
@@ -64,6 +65,24 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
           </label>
           <p>Level 0 deterministic processing only: transaction parsing, math, $5M threshold, Western-11 check, dedupe, and initial recommendation. No paid API and no model call.</p>
           <button type="submit">Run SEC hunter</button>
+        </form>
+      </section>
+
+      <section className="product-section">
+        <div className="product-section-heading">
+          <div><p className="product-kicker"><span aria-hidden />Dealer Hunt #3</p><h2>Run one completed Western dealer expansion</h2></div>
+        </div>
+        <form action={runDealerExpansion} className="product-panel">
+          <label>
+            <span>Official acquisition / opening URL</span>
+            <input name="dealer_event_url" type="url" required placeholder="https://official-company.example/news/completed-expansion" />
+          </label>
+          <label>
+            <span>Official ownership / dealer-principal URL</span>
+            <input name="dealer_ownership_url" type="url" required placeholder="https://official-company.example/team" />
+          </label>
+          <p>Deterministic source, completion, dealer category, ownership, Western-11, distributed-footprint, recency, and dedupe gates. No paid API and no model call.</p>
+          <button type="submit">Run dealer expansion hunter</button>
         </form>
       </section>
 
@@ -213,7 +232,12 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
                   <b>{candidate.person_name}</b>
                 </div>
                 <p>{candidate.company_name ?? "Company unknown"}{candidate.role ? ` · ${candidate.role}` : ""}</p>
-                <p>{candidate.trigger_summary} · {candidate.source_hunt_key === "sec-8k-western-founder-mna-100m" ? "Company transaction value" : "Event amount"}: {money(candidate.event_amount, candidate.event_currency)}</p>
+                <p>
+                  {candidate.trigger_summary}
+                  {candidate.source_hunt_key === "western-dealer-group-acquisition-expansion"
+                    ? ` · Operating footprint: ${candidate.business_footprint ?? "Not confirmed"}`
+                    : ` · ${candidate.source_hunt_key === "sec-8k-western-founder-mna-100m" ? "Company transaction value" : "Event amount"}: ${money(candidate.event_amount, candidate.event_currency)}`}
+                </p>
                 <small>{candidate.supra_lead_id} · {candidate.source_hunt_label}</small>
 
                 <form action={action} className="product-panel">

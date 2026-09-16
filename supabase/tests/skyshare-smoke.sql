@@ -11,7 +11,7 @@ select set_config('skyshare_smoke.internal_user_id',(select id::text from auth.u
 select pg_temp.check_ok((select count(*)=1 from organization_memberships where user_id=current_setting('skyshare_smoke.client_user_id')::uuid) and exists(select 1 from organization_memberships where user_id=current_setting('skyshare_smoke.client_user_id')::uuid and organization_id='85ded2c8-d4b0-4109-b3c0-ef8c15ab4922' and role='client_member' and status='active'), 'client has only expected membership');
 select pg_temp.check_ok((select count(*)=1 from organization_memberships where user_id=current_setting('skyshare_smoke.internal_user_id')::uuid) and exists(select 1 from organization_memberships where user_id=current_setting('skyshare_smoke.internal_user_id')::uuid and organization_id='2540997c-7bbb-4430-a431-729fc258f431' and role='internal_admin' and status='active'), 'internal user has only expected membership');
 -- No user, membership or persistent configuration creation. Reuse Hunt #1 and
--- create/reuse a rollback-only Hunt #2 contract fixture.
+-- create/reuse rollback-only Hunt #2 and Hunt #3 contract fixtures.
 set local role authenticated;
 select set_config('request.jwt.claims',jsonb_build_object('sub',current_setting('skyshare_smoke.internal_user_id'),'role','authenticated')::text,true);
 select pg_temp.check_ok(exists(select 1 from lead_hunts where id='1d38483b-e5da-41cd-a5c0-6ecf5081060e'), 'internal access to SEC hunt');
@@ -45,10 +45,34 @@ select '85ded2c8-d4b0-4109-b3c0-ef8c15ab4922',current_setting('skyshare_smoke.hu
 ('enrichment','enrichment_needed','{"reason":"direct_contact_data_absent","paid_enrichment_executed":false}')
 ) as gates(kind,reason,evidence);
 update lead_hunt_runs set status='completed',completed_at=now(),summary='{"raw_signals":1,"qualified":1,"external_cost":0,"model_calls":0,"estimated_tokens":0,"paid_vendor_usage":0}' where id='eeeeeeee-0000-4000-8000-000000000006';
+insert into lead_hunts(id,organization_id,hunt_key,label,priority,configuration,created_by,updated_by)
+values('eeeeeeee-0000-4000-8000-000000000009','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922','western-dealer-group-acquisition-expansion','Western Dealer Group Acquisition & Expansion','p0','{"source":"official_company_pages","recency_days":365,"model_policy":"deterministic_only"}',current_setting('skyshare_smoke.internal_user_id')::uuid,current_setting('skyshare_smoke.internal_user_id')::uuid)
+on conflict(organization_id,hunt_key) do nothing;
+select set_config('skyshare_smoke.hunt3_id',(select id::text from lead_hunts where organization_id='85ded2c8-d4b0-4109-b3c0-ef8c15ab4922' and hunt_key='western-dealer-group-acquisition-expansion'),true);
+insert into lead_hunt_runs(id,organization_id,hunt_id,status,trigger_kind) values('eeeeeeee-0000-4000-8000-00000000000a','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922',current_setting('skyshare_smoke.hunt3_id')::uuid,'running','manual');
+insert into lead_signals(id,organization_id,hunt_id,hunt_run_id,source_type,source_record_id,source_url,event_type,title,occurred_at,geography,normalized_payload,raw_payload)
+values('eeeeeeee-0000-4000-8000-00000000000b','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922',current_setting('skyshare_smoke.hunt3_id')::uuid,'eeeeeeee-0000-4000-8000-00000000000a','official_company_page','dealer-expansion:lapis:porsche-livermore-audi-livermore-land-rover-livermore-livermore-honda:2026-03-17','https://www.lapis.com/blog/fourdealershipacquisition','completed_dealer_expansion','Todd Blue — LAPIS','2026-03-17T00:00:00Z','{"western11":true,"operating_locations":[{"city":"Flagstaff","state":"AZ"},{"city":"Rancho Mirage","state":"CA"},{"city":"Livermore","state":"CA"}]}','{"active_location_count":6,"state_count":2,"metro_count":3,"model_calls":0}','{"PRIVATE_HUNT3_PARSER_EXCERPT":true}');
+insert into lead_candidates(id,organization_id,supra_lead_id,source_hunt_key,source_hunt_label,person_name,company_name,role,geography,trigger_summary,event_date,event_amount,event_currency,system_recommendation,why_found,why_fit,business_footprint,known_facts,inferred_facts,unknown_facts,data_confidence,whale_score,likely_product_fit,status)
+values('eeeeeeee-0000-4000-8000-00000000000c','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922','DEALER-SMOKE-ROLLBACK','western-dealer-group-acquisition-expansion','Western Dealer Group Acquisition & Expansion','Todd Blue','LAPIS','Founder and CEO / verified founder','{"western11":true,"states":["AZ","CA"],"metros":3,"basis":"verified_operating_locations"}','Dealer-group owner expanded the company''s operating footprint through a completed dealership acquisition in a new Western market.','2026-03-17',null,'USD','whale','LAPIS completed a dealership acquisition that brought its verified operating footprint to 6 locations.','A verified multi-metro, multi-state operating footprint is relevant to private aviation, while actual travel remains unverified.','6 dealerships across 3 verified metros and 2 Western states.','["Todd Blue is explicitly identified as Founder and CEO and founder.","Six active dealerships are stated after the event."]','["Distributed operations are a relevance signal; actual travel is not proven."]','["Personal proceeds","Aircraft ownership","Private-flight usage","Direct contact information"]',96,92,'OpenJet — validate real travel patterns before outreach','qualified');
+insert into lead_candidate_private_details(candidate_id,organization_id,hunt_id,signal_id,dedupe_key,enrichment_needed,internal_reasoning,source_orchestration,model_internals,qualification_config,private_research)
+values('eeeeeeee-0000-4000-8000-00000000000c','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922',current_setting('skyshare_smoke.hunt3_id')::uuid,'eeeeeeee-0000-4000-8000-00000000000b','dealer-owner-expansion:todd-blue:lapis:2026-03-17',true,'PRIVATE_HUNT3_REASONING','{"adapter":"dealer_expansion_manual"}','{"model_calls":0,"estimated_input_tokens":0,"estimated_output_tokens":0}','{"recency_days":365}','{"personal_proceeds":"unknown_not_inferred","actual_travel":"unknown_not_inferred"}');
+insert into lead_evidence(organization_id,candidate_id,label,source_url,summary,client_visible)
+values
+('85ded2c8-d4b0-4109-b3c0-ef8c15ab4922','eeeeeeee-0000-4000-8000-00000000000c','Official company announcement — completed dealership acquisition','https://www.lapis.com/blog/fourdealershipacquisition','LAPIS states that it acquired four Livermore dealerships and expanded to six.',true),
+('85ded2c8-d4b0-4109-b3c0-ef8c15ab4922','eeeeeeee-0000-4000-8000-00000000000c','Official team page — ownership and active role','https://www.lapis.com/team/','Todd Blue is identified as Founder and CEO and explicitly connected to dealership ownership.',true),
+('85ded2c8-d4b0-4109-b3c0-ef8c15ab4922','eeeeeeee-0000-4000-8000-00000000000c','PRIVATE_HUNT3_EVIDENCE',null,'Raw parser evidence stays internal.',false);
+insert into lead_gate_events(organization_id,hunt_id,hunt_run_id,signal_id,candidate_id,gate_kind,reason_code,internal_evidence)
+select '85ded2c8-d4b0-4109-b3c0-ef8c15ab4922',current_setting('skyshare_smoke.hunt3_id')::uuid,'eeeeeeee-0000-4000-8000-00000000000a','eeeeeeee-0000-4000-8000-00000000000b','eeeeeeee-0000-4000-8000-00000000000c',kind,reason,evidence::jsonb from (values
+('signal_seen','raw_signal_seen','{"reason":"official_pages_submitted"}'),
+('qualification','qualified','{"reason":"all_hard_gates_passed","system_recommendation":"whale","score":92}'),
+('enrichment','enrichment_needed','{"reason":"direct_contact_data_absent","paid_enrichment_executed":false}')
+) as gates(kind,reason,evidence);
+update lead_hunt_runs set status='completed',completed_at=now(),summary='{"raw_signals":1,"qualified":1,"external_cost":0,"model_calls":0,"estimated_tokens":0,"paid_vendor_usage":0}' where id='eeeeeeee-0000-4000-8000-00000000000a';
 insert into lead_candidates(id,organization_id,supra_lead_id,source_hunt_key,source_hunt_label,person_name,trigger_summary,why_found,system_recommendation,publication_state,published_at,published_by) values('eeeeeeee-0000-4000-8000-000000000004','2540997c-7bbb-4430-a431-729fc258f431','SMOKE-OTHER-TENANT','sec_insider_sales_5m','SEC smoke fixture','Other tenant sentinel','Fixture','Isolation check','whale','published',now(),current_setting('skyshare_smoke.internal_user_id')::uuid);
 select set_config('request.jwt.claims',jsonb_build_object('sub',current_setting('skyshare_smoke.client_user_id'),'role','authenticated')::text,true);
 select pg_temp.check_ok(not exists(select 1 from lead_candidates where id='eeeeeeee-0000-4000-8000-000000000003'), 'unpublished hidden');
 select pg_temp.check_ok(not exists(select 1 from lead_candidates where id='eeeeeeee-0000-4000-8000-000000000008'), 'unpublished Hunt #2 candidate hidden');
+select pg_temp.check_ok(not exists(select 1 from lead_candidates where id='eeeeeeee-0000-4000-8000-00000000000c'), 'unpublished Hunt #3 candidate hidden');
 select pg_temp.check_ok(not exists(select 1 from lead_candidates where id='eeeeeeee-0000-4000-8000-000000000004'), 'other tenant published candidate hidden');
 do $$ declare target uuid; begin
 foreach target in array array['eeeeeeee-0000-4000-8000-000000000003'::uuid,'eeeeeeee-0000-4000-8000-000000000004'::uuid] loop
@@ -64,11 +88,14 @@ select pg_temp.check_ok(exists(select 1 from lead_evidence where candidate_id='6
 select set_config('request.jwt.claims',jsonb_build_object('sub',current_setting('skyshare_smoke.internal_user_id'),'role','authenticated')::text,true);
 update lead_candidates set publication_state='published',published_at=now(),published_by=current_setting('skyshare_smoke.internal_user_id')::uuid where id='eeeeeeee-0000-4000-8000-000000000003';
 update lead_candidates set publication_state='published',published_at=now(),published_by=current_setting('skyshare_smoke.internal_user_id')::uuid where id='eeeeeeee-0000-4000-8000-000000000008';
+update lead_candidates set publication_state='published',published_at=now(),published_by=current_setting('skyshare_smoke.internal_user_id')::uuid where id='eeeeeeee-0000-4000-8000-00000000000c';
 select set_config('request.jwt.claims',jsonb_build_object('sub',current_setting('skyshare_smoke.client_user_id'),'role','authenticated')::text,true);
 select pg_temp.check_ok(exists(select 1 from lead_candidates where id='eeeeeeee-0000-4000-8000-000000000003'), 'published visible');
 select pg_temp.check_ok((select count(*)=1 from lead_evidence where candidate_id='eeeeeeee-0000-4000-8000-000000000003'), 'only public evidence visible');
 select pg_temp.check_ok(exists(select 1 from lead_candidates where id='eeeeeeee-0000-4000-8000-000000000008' and source_hunt_key='sec-8k-western-founder-mna-100m' and system_recommendation='whale' and event_amount=25000000000), 'published Hunt #2 WHALE visible with company transaction value');
 select pg_temp.check_ok((select count(*)=1 from lead_evidence where candidate_id='eeeeeeee-0000-4000-8000-000000000008' and client_visible), 'only client-safe Hunt #2 evidence visible');
+select pg_temp.check_ok(exists(select 1 from lead_candidates where id='eeeeeeee-0000-4000-8000-00000000000c' and source_hunt_key='western-dealer-group-acquisition-expansion' and system_recommendation='whale' and whale_score=92 and event_amount is null), 'published Hunt #3 WHALE visible without invented transaction proceeds');
+select pg_temp.check_ok((select count(*)=2 from lead_evidence where candidate_id='eeeeeeee-0000-4000-8000-00000000000c' and client_visible), 'only two client-safe Hunt #3 evidence artifacts visible');
 do $$ declare t text; n integer; begin
 foreach t in array array['lead_signals','lead_hunts','lead_hunt_runs','lead_candidate_private_details','lead_gate_events','lead_vendor_usage'] loop
 execute format('select count(*) from public.%I',t) into n;
@@ -94,6 +121,8 @@ select pg_temp.check_ok(exists(select 1 from lead_feedback where candidate_id='e
 select pg_temp.check_ok((select count(*)=7 and count(distinct reason_code)=7 and sum(model_calls)=0 and sum(estimated_input_tokens+estimated_output_tokens)=0 from lead_gate_events where hunt_run_id='eeeeeeee-0000-4000-8000-000000000001'), 'seven attributed gates; zero model usage');
 select pg_temp.check_ok((select count(*)=4 and count(distinct reason_code)=4 and sum(model_calls)=0 and sum(estimated_input_tokens+estimated_output_tokens)=0 from lead_gate_events where hunt_run_id='eeeeeeee-0000-4000-8000-000000000006'), 'Hunt #2 signal, qualification, enrichment, and publication gates; zero model usage');
 select pg_temp.check_ok((select count(*)=1 from lead_candidate_private_details where candidate_id='eeeeeeee-0000-4000-8000-000000000008' and dedupe_key='mna:ariel-emanuel:endeavor-group-holdings-inc:2025-03-24'), 'Hunt #2 deterministic candidate/event key stored once');
+select pg_temp.check_ok((select count(*)=4 and count(distinct reason_code)=4 and sum(model_calls)=0 and sum(estimated_input_tokens+estimated_output_tokens)=0 from lead_gate_events where hunt_run_id='eeeeeeee-0000-4000-8000-00000000000a'), 'Hunt #3 signal, qualification, enrichment, and publication gates; zero model usage');
+select pg_temp.check_ok((select count(*)=1 from lead_candidate_private_details where candidate_id='eeeeeeee-0000-4000-8000-00000000000c' and dedupe_key='dealer-owner-expansion:todd-blue:lapis:2026-03-17'), 'Hunt #3 deterministic candidate/event key stored once');
 do $$ declare n integer; begin
 update lead_gate_events set internal_evidence='{"forged":true}' where hunt_run_id='eeeeeeee-0000-4000-8000-000000000001'; get diagnostics n=row_count; perform pg_temp.check_ok(n=0,'gate update denied');
 delete from lead_gate_events where hunt_run_id='eeeeeeee-0000-4000-8000-000000000001'; get diagnostics n=row_count; perform pg_temp.check_ok(n=0,'gate delete denied');
@@ -104,4 +133,4 @@ exception when raise_exception then if SQLERRM not like 'Paid/API model usage re
 end $$;
 select pg_temp.check_ok(not exists(select 1 from lead_vendor_usage where organization_id='85ded2c8-d4b0-4109-b3c0-ef8c15ab4922'), 'zero vendor rows and cost');
 rollback;
-select 'PASS: Hunt #1 + Hunt #2 demo database contract; all fixture changes rolled back; browser interactions not asserted' as result;
+select 'PASS: Hunt #1 + Hunt #2 + Hunt #3 demo database contract; all fixture changes rolled back; browser interactions not asserted' as result;

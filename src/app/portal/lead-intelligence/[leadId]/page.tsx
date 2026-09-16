@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ProductPageHeader, StatusBadge } from "@/components/product-shell";
 import { getPortalLeadDetail } from "@/lib/lead-intelligence";
+import { formatClientGeography } from "@/lib/lead-intelligence/client-presentation";
 import { saveLeadDecision } from "@/app/portal/lead-intelligence/actions";
 
 function renderFacts(items: unknown[]) {
@@ -36,7 +37,9 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
         <div><span>System recommendation</span><b>{candidate.system_recommendation?.toUpperCase() ?? "PENDING"}</b></div>
         <div><span>Your decision</span><b>{decision}</b></div>
         <div><span>Trigger</span><b>{candidate.trigger_summary}</b></div>
-        <div><span>{candidate.source_hunt_key === "sec-8k-western-founder-mna-100m" ? "Company transaction value" : "Transaction / event amount"}</span><b>{money(candidate.event_amount, candidate.event_currency)}</b></div>
+        {candidate.source_hunt_key === "western-dealer-group-acquisition-expansion"
+          ? <div><span>Verified operating footprint</span><b>{candidate.business_footprint ?? "Not confirmed"}</b></div>
+          : <div><span>{candidate.source_hunt_key === "sec-8k-western-founder-mna-100m" ? "Company transaction value" : "Transaction / event amount"}</span><b>{money(candidate.event_amount, candidate.event_currency)}</b></div>}
         <div><span>Event date</span><b>{candidate.event_date ?? "Unknown"}</b></div>
         <div><span>Source hunt</span><b>{candidate.source_hunt_label}</b></div>
         <div><span>Data confidence</span><b>{candidate.data_confidence == null ? "—" : `${candidate.data_confidence}%`}</b></div>
@@ -65,7 +68,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
         <div className="product-panel">
           <p>Email: {candidate.contact_email ?? "Not enriched yet"}</p>
           <p>Phone: {candidate.contact_phone ?? "Not enriched yet"}</p>
-          <p>Geography: {JSON.stringify(candidate.geography)}</p>
+          <p>Geography: {formatClientGeography(candidate.geography)}</p>
           <p>Likely product fit: {candidate.likely_product_fit ?? "Not assigned"}</p>
         </div>
       </section>

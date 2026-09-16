@@ -6,6 +6,7 @@ import { requireInternalAdmin } from "@/lib/auth";
 import { requireHermesClient } from "@/lib/hermes";
 import { runSecHunterPoc } from "@/lib/lead-intelligence/sec-poc";
 import { runSecMnaHunter } from "@/lib/lead-intelligence/sec-mna-poc";
+import { runDealerExpansionHunter } from "@/lib/lead-intelligence/dealer-expansion-poc";
 
 const candidateStateSchema = z.object({
   status: z.enum(["new", "qualified", "archived"]),
@@ -64,5 +65,23 @@ export async function runSecMnaAction(clientId: string, formData: FormData): Pro
   if (!parsed.success) throw new Error("Enter a valid official SEC Form 8-K filing or index URL.");
 
   await runSecMnaHunter(clientId, parsed.data.filingUrl);
+  revalidatePath(`/hermes/clients/${clientId}/lead-intelligence`);
+}
+
+export async function runDealerExpansionAction(clientId: string, formData: FormData): Promise<void> {
+  const officialUrl = z.string().url().refine(
+    (value) => value.startsWith("https://"),
+    "Use a direct HTTPS URL from an official source.",
+  );
+  const parsed = z.object({
+    eventUrl: officialUrl,
+    ownershipUrl: officialUrl,
+  }).safeParse({
+    eventUrl: formData.get("dealer_event_url"),
+    ownershipUrl: formData.get("dealer_ownership_url"),
+  });
+  if (!parsed.success) throw new Error("Enter direct official event and ownership source URLs.");
+
+  await runDealerExpansionHunter(clientId, parsed.data.eventUrl, parsed.data.ownershipUrl);
   revalidatePath(`/hermes/clients/${clientId}/lead-intelligence`);
 }
