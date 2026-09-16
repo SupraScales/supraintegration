@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ProductPageHeader, StatusBadge } from "@/components/product-shell";
 import { getPortalLeadDetail } from "@/lib/lead-intelligence";
+import { formatClientGeography } from "@/lib/lead-intelligence/client-presentation";
 import { saveLeadDecision } from "@/app/portal/lead-intelligence/actions";
 
 function renderFacts(items: unknown[]) {
@@ -67,7 +68,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
         <div className="product-panel">
           <p>Email: {candidate.contact_email ?? "Not enriched yet"}</p>
           <p>Phone: {candidate.contact_phone ?? "Not enriched yet"}</p>
-          <p>Geography: {JSON.stringify(candidate.geography)}</p>
+          <p>Geography: {formatClientGeography(candidate.geography)}</p>
           <p>Likely product fit: {candidate.likely_product_fit ?? "Not assigned"}</p>
         </div>
       </section>
