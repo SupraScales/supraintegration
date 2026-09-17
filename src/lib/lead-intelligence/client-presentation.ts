@@ -21,3 +21,9 @@ export function formatClientGeography(geography: Record<string, unknown> | null)
 
   return "Not confirmed";
 }
+
+export function leadEventAmountLabel(sourceHuntKey: string) {
+  if (sourceHuntKey === "sec-western-founder-ipo-100m") return "Total IPO offering value";
+  if (sourceHuntKey === "sec-8k-western-founder-mna-100m") return "Company transaction value";
+  return "Transaction / event amount";
+}
