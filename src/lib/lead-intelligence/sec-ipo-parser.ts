@@ -201,7 +201,7 @@ function parseIndexMetadata(indexUrl: string, html: string) {
   const cik = text.match(/\bCIK:\s*0*(\d{1,10})\b/i)?.[1]
     ?? indexUrl.match(/^https:\/\/www\.sec\.gov\/Archives\/edgar\/data\/(\d{1,10})\//i)?.[1]
     ?? null;
-  const company = text.match(/\b([A-Z][A-Za-z0-9&.'-]*(?:\s+[A-Z][A-Za-z0-9&.'-]*){0,5},?\s+(?:Inc\.?|LLC|Ltd\.?|Corp\.?|Corporation))\s+\(Filer\)\s+CIK:/i)?.[1]?.trim() ?? null;
+  const company = text.match(/\b([A-Z][A-Za-z0-9&.'-]*(?:\s+[A-Z][A-Za-z0-9&.'-]*){0,5},?\s+(?:Inc\.?|LLC|Ltd\.?|Corp\.?|Corporation))\s+\(Filer\)\s+CIK\s*:/i)?.[1]?.trim() ?? null;
   return { text, accession, filingDate, formType, cik, company };
 }
 
@@ -231,7 +231,9 @@ function parseOffering(prospectusText: string) {
 function parseFounder(prospectusText: string) {
   const direct = prospectusText.match(/\b([A-Z][A-Za-z'’-]+(?:\s+[A-Z][A-Za-z'’-]+){1,3})\s+is our\s+(Co-Founder|Founder)\b/i);
   const reverse = prospectusText.match(/\bour\s+(Co-Founder|Founder),\s+([A-Z][A-Za-z'’-]+(?:\s+[A-Z][A-Za-z'’-]+){1,3})\b/i);
-  const personName = direct?.[1] ?? reverse?.[2] ?? null;
+  const personName = (direct?.[1] ?? reverse?.[2] ?? null)
+    ?.replace(/^(?:(?:Named\s+)?Executive Officers?|Directors?|Management)\s+/i, "")
+    ?? null;
   const rawStatus = direct?.[2] ?? reverse?.[1] ?? null;
   const founderStatus = rawStatus?.toLowerCase() === "co-founder" ? "co-founder" as const : rawStatus ? "founder" as const : null;
   if (!personName) return { personName, founderStatus, role: null, excerpt: null };
@@ -312,6 +314,21 @@ function parseWesternOffice(indexText: string, prospectusText: string) {
   return { city: null, state: null, excerpt: null };
 }
 
+function parseOperatingCompany(indexText: string, prospectusText: string, companyName: string | null) {
+  const companyBase = companyName?.replace(/,?\s+(?:Inc\.?|LLC|Ltd\.?|Corp\.?|Corporation)$/i, "") ?? null;
+  const issuerSubjects = ["we", "the issuer", "the company", companyName, companyBase]
+    .filter((subject): subject is string => Boolean(subject))
+    .map(escapeRegExp)
+    .join("|");
+  const explicitlyNonOperating = new RegExp(
+    `\\b(?:${issuerSubjects})\\s+(?:are|is)\\s+(?:an?\\s+)?(?:blank-check company|shell company|special purpose acquisition company|investment fund|exchange-traded fund)\\b`,
+    "i",
+  ).test(prospectusText);
+  const operatingEvidence = /\bSIC\s*:\s*\d{4}\b/i.test(indexText)
+    || /\b(?:our platform|our products|our customers|we provide|we design|we develop|software|services|operations)\b/i.test(prospectusText);
+  return operatingEvidence && !explicitlyNonOperating;
+}
+
 function rejection(input: {
   finalProspectus: boolean;
   exchangeCertified: boolean;
@@ -369,8 +386,7 @@ export function parseSecIpoFilings(bundle: SecIpoFilingBundle): ParsedSecIpo {
   const withdrawn = /\b(?:initial public offering|offering) (?:has been|was) withdrawn\b/i.test(prospectusText);
   const postponed = /\b(?:initial public offering|offering) (?:has been|was) postponed\b/i.test(prospectusText);
   const offering = parseOffering(prospectusText);
-  const operatingCompany = /\b(?:our platform|our products|our customers|we provide|we design|we develop|software|services|operations)\b/i.test(prospectusText)
-    && !/\b(?:blank-check company|shell company|special purpose acquisition company|investment fund|exchange-traded fund)\b/i.test(prospectusText);
+  const operatingCompany = parseOperatingCompany(prospectusIndex.text, prospectusText, companyName);
   const founder = parseFounder(prospectusText);
   const ownership = parseFounderOwnership(prospectusText, founder.personName, offering.price);
   const economicConnectionProven = Boolean(

@@ -59,6 +59,35 @@ test("real Figma 424B4 and CERT fixtures deterministically produce a WHALE candi
   assert.equal(draft.deterministicChecks.paid_vendor_usage, 0);
 });
 
+test("live EDGAR spacing, section labels, and ownership-table layout still resolve Figma", () => {
+  const liveProspectus = prospectus
+    .replace("Dylan Field is our Co-Founder", "Executive Officers Dylan Field is our Co-Founder")
+    .replace(
+      /<p>Dylan Field beneficially owned[\s\S]*?<\/p>/,
+      `<p>Shares Beneficially Owned Prior to this Offering Shares Beneficially Owned After this Offering Assuming No Exercise of Underwriters' Option Class A Class B Name of Beneficial Owner Shares % Shares % No Exercise of Underwriters' Option Dylan Field (1) ....................................... — — 56,553,591 67.0 % 51.1 % 2,350,000 2,350,000 — — 54,203,591 66.1 % 49.6 %</p>`,
+    );
+  const parsed = parseSecIpoFilings(ipoFixtureWith({
+    prospectusIndexHtml: prospectusIndex.replaceAll("CIK:", "CIK :"),
+    prospectusHtml: liveProspectus,
+    certIndexHtml: certIndex.replaceAll("CIK:", "CIK :"),
+  }));
+
+  assert.deepEqual(parsed.qualification, { qualified: true });
+  assert.equal(parsed.companyName, "Figma, Inc.");
+  assert.equal(parsed.founderName, "Dylan Field");
+  assert.equal(parsed.founderSecondaryShares, BigInt("2350000"));
+  assert.equal(parsed.founderPostOfferingShares, BigInt("54203591"));
+  assert.equal(parsed.founderRetainedEquityValueCents, BigInt("178871850300"));
+});
+
+test("references to investment funds do not turn an operating issuer into a fund", () => {
+  const parsed = parseSecIpoFilings(ipoFixtureWith({
+    prospectusHtml: `${prospectus}<p>Institutional investors may transfer shares to an investment fund. The company also owns an exchange-traded fund as a marketable security.</p>`,
+  }));
+  assert.equal(parsed.operatingCompany, true);
+  assert.deepEqual(parsed.qualification, { qualified: true });
+});
+
 test("exact integer-cent math never includes optional overallotment in the base offering", () => {
   const parsed = parseSecIpoFilings(FIGMA_SEC_IPO_FIXTURE);
   assert.equal(parsed.baseOfferingShares, parsed.companyPrimaryShares! + parsed.aggregateSellingStockholderShares!);
