@@ -7,6 +7,7 @@ import { requireHermesClient } from "@/lib/hermes";
 import { runSecHunterPoc } from "@/lib/lead-intelligence/sec-poc";
 import { runSecMnaHunter } from "@/lib/lead-intelligence/sec-mna-poc";
 import { runDealerExpansionHunter } from "@/lib/lead-intelligence/dealer-expansion-poc";
+import { runSecIpoHunter } from "@/lib/lead-intelligence/sec-ipo-poc";
 
 const candidateStateSchema = z.object({
   status: z.enum(["new", "qualified", "archived"]),
@@ -83,5 +84,23 @@ export async function runDealerExpansionAction(clientId: string, formData: FormD
   if (!parsed.success) throw new Error("Enter direct official event and ownership source URLs.");
 
   await runDealerExpansionHunter(clientId, parsed.data.eventUrl, parsed.data.ownershipUrl);
+  revalidatePath(`/hermes/clients/${clientId}/lead-intelligence`);
+}
+
+export async function runSecIpoAction(clientId: string, formData: FormData): Promise<void> {
+  const officialSecUrl = z.string().url().refine(
+    (value) => value.startsWith("https://www.sec.gov/Archives/edgar/"),
+    "Use an official SEC EDGAR URL.",
+  );
+  const parsed = z.object({
+    prospectusUrl: officialSecUrl,
+    certUrl: officialSecUrl,
+  }).safeParse({
+    prospectusUrl: formData.get("ipo_prospectus_url"),
+    certUrl: formData.get("ipo_cert_url"),
+  });
+  if (!parsed.success) throw new Error("Enter official SEC 424B4 and CERT filing URLs.");
+
+  await runSecIpoHunter(clientId, parsed.data.prospectusUrl, parsed.data.certUrl);
   revalidatePath(`/hermes/clients/${clientId}/lead-intelligence`);
 }

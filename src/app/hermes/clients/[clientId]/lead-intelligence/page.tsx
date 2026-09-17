@@ -1,6 +1,7 @@
 import { ProductPageHeader, StatusBadge } from "@/components/product-shell";
 import { getHermesLeadIntelligence } from "@/lib/lead-intelligence";
-import { runDealerExpansionAction, runSecMnaAction, runSecPocAction, updateLeadCandidateState } from "@/app/hermes/clients/[clientId]/lead-intelligence/actions";
+import { runDealerExpansionAction, runSecIpoAction, runSecMnaAction, runSecPocAction, updateLeadCandidateState } from "@/app/hermes/clients/[clientId]/lead-intelligence/actions";
+import { leadEventAmountLabel } from "@/lib/lead-intelligence/client-presentation";
 
 function pretty(value: unknown) {
   return JSON.stringify(value ?? {}, null, 2);
@@ -44,6 +45,7 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
   const runSec = runSecPocAction.bind(null, clientId);
   const runSecMna = runSecMnaAction.bind(null, clientId);
   const runDealerExpansion = runDealerExpansionAction.bind(null, clientId);
+  const runSecIpo = runSecIpoAction.bind(null, clientId);
 
   return (
     <>
@@ -65,6 +67,24 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
           </label>
           <p>Level 0 deterministic processing only: transaction parsing, math, $5M threshold, Western-11 check, dedupe, and initial recommendation. No paid API and no model call.</p>
           <button type="submit">Run SEC hunter</button>
+        </form>
+      </section>
+
+      <section className="product-section">
+        <div className="product-section-heading">
+          <div><p className="product-kicker"><span aria-hidden />SEC Hunt #4</p><h2>Run one completed founder IPO listing</h2></div>
+        </div>
+        <form action={runSecIpo} className="product-panel">
+          <label>
+            <span>Official SEC Form 424B4 filing or index URL</span>
+            <input name="ipo_prospectus_url" type="url" required placeholder="https://www.sec.gov/Archives/edgar/data/.../...-index.html" />
+          </label>
+          <label>
+            <span>Official SEC exchange CERT filing or index URL</span>
+            <input name="ipo_cert_url" type="url" required placeholder="https://www.sec.gov/Archives/edgar/data/.../...-index.html" />
+          </label>
+          <p>Deterministic final-prospectus, exchange-certification, initial-IPO, exact base-offering, founder ownership, Western-11, and dedupe gates. No paid API and no model call.</p>
+          <button type="submit">Run founder IPO hunter</button>
         </form>
       </section>
 
@@ -236,7 +256,7 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
                   {candidate.trigger_summary}
                   {candidate.source_hunt_key === "western-dealer-group-acquisition-expansion"
                     ? ` · Operating footprint: ${candidate.business_footprint ?? "Not confirmed"}`
-                    : ` · ${candidate.source_hunt_key === "sec-8k-western-founder-mna-100m" ? "Company transaction value" : "Event amount"}: ${money(candidate.event_amount, candidate.event_currency)}`}
+                    : ` · ${leadEventAmountLabel(candidate.source_hunt_key)}: ${money(candidate.event_amount, candidate.event_currency)}`}
                 </p>
                 <small>{candidate.supra_lead_id} · {candidate.source_hunt_label}</small>
 
