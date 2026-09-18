@@ -8,6 +8,7 @@ import { runSecHunterPoc } from "@/lib/lead-intelligence/sec-poc";
 import { runSecMnaHunter } from "@/lib/lead-intelligence/sec-mna-poc";
 import { runDealerExpansionHunter } from "@/lib/lead-intelligence/dealer-expansion-poc";
 import { runSecIpoHunter } from "@/lib/lead-intelligence/sec-ipo-poc";
+import { runSkyshareDiscovery } from "@/lib/lead-intelligence/sec-discovery-runner";
 
 const candidateStateSchema = z.object({
   status: z.enum(["new", "qualified", "archived"]),
@@ -66,6 +67,20 @@ export async function runSecMnaAction(clientId: string, formData: FormData): Pro
   if (!parsed.success) throw new Error("Enter a valid official SEC Form 8-K filing or index URL.");
 
   await runSecMnaHunter(clientId, parsed.data.filingUrl);
+  revalidatePath(`/hermes/clients/${clientId}/lead-intelligence`);
+}
+
+export async function runSecMnaDiscoveryNowAction(clientId: string): Promise<void> {
+  await requireInternalAdmin();
+  await requireHermesClient(clientId);
+  if (process.env.SKYSHARE_DISCOVERY_ORGANIZATION_ID?.trim() !== clientId) {
+    throw new Error("Automated SEC discovery is not configured for this organization.");
+  }
+  if (process.env.SKYSHARE_DISCOVERY_HUNT2_ENABLED?.trim().toLowerCase() !== "true") {
+    throw new Error("Automated SEC discovery is disabled.");
+  }
+
+  await runSkyshareDiscovery();
   revalidatePath(`/hermes/clients/${clientId}/lead-intelligence`);
 }
 

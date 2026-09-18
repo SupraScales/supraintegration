@@ -27,6 +27,22 @@ insert into lead_hunts(id,organization_id,hunt_key,label,priority,configuration,
 values('eeeeeeee-0000-4000-8000-000000000005','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922','sec-8k-western-founder-mna-100m','$100M+ Western Founder M&A Completions','p0','{"source":"sec_form_8k","minimum_company_transaction_usd":100000000,"model_policy":"deterministic_only"}',current_setting('skyshare_smoke.internal_user_id')::uuid,current_setting('skyshare_smoke.internal_user_id')::uuid)
 on conflict(organization_id,hunt_key) do nothing;
 select set_config('skyshare_smoke.hunt2_id',(select id::text from lead_hunts where organization_id='85ded2c8-d4b0-4109-b3c0-ef8c15ab4922' and hunt_key='sec-8k-western-founder-mna-100m'),true);
+set local role service_role;
+insert into lead_discovery_items(id,organization_id,hunt_id,source_key,source_type,source_url,form_type,accession_number,issuer_cik,filing_date,status,metadata)
+values('ffffffff-0000-4000-8000-000000000001','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922',current_setting('skyshare_smoke.hunt2_id')::uuid,'sec-8k:0001193125-25-060947','sec_daily_index','https://www.sec.gov/Archives/edgar/data/1766363/0001193125-25-060947.txt','8-K','0001193125-25-060947','1766363','2025-03-24','pending','{"filing_index_url":"https://www.sec.gov/Archives/edgar/data/1766363/000119312525060947/0001193125-25-060947-index.html"}');
+insert into lead_discovery_items(organization_id,hunt_id,source_key,source_type,source_url,form_type,accession_number,issuer_cik,filing_date)
+values('85ded2c8-d4b0-4109-b3c0-ef8c15ab4922',current_setting('skyshare_smoke.hunt2_id')::uuid,'sec-8k:0001193125-25-060947','sec_daily_index','https://www.sec.gov/Archives/edgar/data/1766363/0001193125-25-060947.txt','8-K','0001193125-25-060947','1766363','2025-03-24')
+on conflict(organization_id,hunt_id,source_key) do nothing;
+select pg_temp.check_ok((select count(*)=1 from lead_discovery_items where source_key='sec-8k:0001193125-25-060947'), 'discovery inbox dedupes accession source key');
+insert into lead_hunt_runs(id,organization_id,hunt_id,status,trigger_kind,started_at) values('ffffffff-0000-4000-8000-000000000002','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922',current_setting('skyshare_smoke.hunt2_id')::uuid,'running','system',now());
+do $$ begin
+  begin
+    insert into lead_hunt_runs(id,organization_id,hunt_id,status,trigger_kind,started_at) values('ffffffff-0000-4000-8000-000000000003','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922',current_setting('skyshare_smoke.hunt2_id')::uuid,'running','system',now());
+    raise exception 'FAIL: concurrent system run accepted';
+  exception when unique_violation then null; end;
+end $$;
+update lead_hunt_runs set status='completed',completed_at=now() where id='ffffffff-0000-4000-8000-000000000002';
+set local role authenticated;
 insert into lead_hunt_runs(id,organization_id,hunt_id,status,trigger_kind) values('eeeeeeee-0000-4000-8000-000000000006','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922',current_setting('skyshare_smoke.hunt2_id')::uuid,'running','manual');
 insert into lead_signals(id,organization_id,hunt_id,hunt_run_id,source_type,source_record_id,source_url,event_type,title,occurred_at,normalized_payload,raw_payload)
 values('eeeeeeee-0000-4000-8000-000000000007','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922',current_setting('skyshare_smoke.hunt2_id')::uuid,'eeeeeeee-0000-4000-8000-000000000006','sec_form_8k','sec-8k-mna:0001193125-25-060947:endeavor-group-holdings-inc:2025-03-24','https://www.sec.gov/Archives/edgar/data/1766363/000119312525060947/0001193125-25-060947-index.htm','completed_founder_mna','Ariel Emanuel — Endeavor Group Holdings, Inc.','2025-03-24T00:00:00Z','{"company_transaction_value_cents":"2500000000000","western11":true,"model_calls":0}','{"PRIVATE_HUNT2_PARSER_EXCERPT":true}');
@@ -124,7 +140,7 @@ select pg_temp.check_ok((select count(*)=2 from lead_evidence where candidate_id
 select pg_temp.check_ok(exists(select 1 from lead_candidates where id='eeeeeeee-0000-4000-8000-000000000010' and source_hunt_key='sec-western-founder-ipo-100m' and system_recommendation='whale' and whale_score=95 and event_amount=1218923640), 'published Hunt #4 WHALE visible with total IPO offering value');
 select pg_temp.check_ok((select count(*)=2 from lead_evidence where candidate_id='eeeeeeee-0000-4000-8000-000000000010' and client_visible), 'only two client-safe Hunt #4 evidence artifacts visible');
 do $$ declare t text; n integer; begin
-foreach t in array array['lead_signals','lead_hunts','lead_hunt_runs','lead_candidate_private_details','lead_gate_events','lead_vendor_usage'] loop
+foreach t in array array['lead_signals','lead_hunts','lead_hunt_runs','lead_discovery_items','lead_candidate_private_details','lead_gate_events','lead_vendor_usage'] loop
 execute format('select count(*) from public.%I',t) into n;
 perform pg_temp.check_ok(n=0,t || ' hidden from client'); end loop; end $$;
 select pg_temp.check_ok(not exists(select 1 from organizations where id='2540997c-7bbb-4430-a431-729fc258f431'), 'other tenant hidden');
