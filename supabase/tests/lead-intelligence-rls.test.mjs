@@ -50,7 +50,7 @@ if (!readConfig().ok) {
       started_at: new Date().toISOString(),
       completed_at: new Date().toISOString(),
     });
-    await insert(svc, "lead_discovery_items", {
+    const discoveryItem = await insert(svc, "lead_discovery_items", {
       organization_id: ctx.orgIds.clientA,
       hunt_id: huntA.id,
       hunt_run_id: runA.id,
@@ -107,6 +107,7 @@ if (!readConfig().ok) {
     ctx.ids = {
       huntA: huntA.id,
       runA: runA.id,
+      discoveryItem: discoveryItem.id,
       publishedSignalA: publishedSignalA.id,
       unpublishedSignalA: unpublishedSignalA.id,
       publishedA: publishedA.id,
@@ -133,6 +134,51 @@ if (!readConfig().ok) {
     for (const table of ["lead_candidate_private_details", "lead_discovery_items", "lead_hunts", "lead_signals", "lead_hunt_runs", "lead_gate_events", "lead_vendor_usage"]) {
       denied(await read(ctx.clients.clientAAdmin, table), `${table} leaked`);
     }
+  });
+
+  test("authenticated users cannot write discovery inbox while service role can", async () => {
+    const attemptedInsert = await ctx.clients.internalAdmin.from("lead_discovery_items").insert({
+      organization_id: ctx.orgIds.clientA,
+      hunt_id: ctx.ids.huntA,
+      source_key: "sec-8k:0001193125-25-060948",
+      source_type: "sec_daily_index",
+      source_url: "https://www.sec.gov/Archives/edgar/data/1766363/0001193125-25-060948.txt",
+      form_type: "8-K",
+      accession_number: "0001193125-25-060948",
+      issuer_cik: "1766363",
+      filing_date: "2025-03-24",
+    }).select("*");
+    assert.ok(attemptedInsert.error || attemptedInsert.data.length === 0);
+
+    const attemptedUpdate = await ctx.clients.internalAdmin
+      .from("lead_discovery_items")
+      .update({ last_error_code: "forged_authenticated_write" })
+      .eq("id", ctx.ids.discoveryItem)
+      .select("*");
+    assert.ok(attemptedUpdate.error || attemptedUpdate.data.length === 0);
+
+    const attemptedDelete = await ctx.clients.internalAdmin
+      .from("lead_discovery_items")
+      .delete()
+      .eq("id", ctx.ids.discoveryItem)
+      .select("*");
+    assert.ok(attemptedDelete.error || attemptedDelete.data.length === 0);
+
+    const svc = serviceClient();
+    const serviceUpdate = await svc
+      .from("lead_discovery_items")
+      .update({ last_error_code: "service_role_write_probe" })
+      .eq("id", ctx.ids.discoveryItem)
+      .select("id, last_error_code")
+      .single();
+    assert.equal(serviceUpdate.error, null);
+    assert.equal(serviceUpdate.data.last_error_code, "service_role_write_probe");
+
+    const serviceReset = await svc
+      .from("lead_discovery_items")
+      .update({ last_error_code: null })
+      .eq("id", ctx.ids.discoveryItem);
+    assert.equal(serviceReset.error, null);
   });
 
   test("client sees only client-safe evidence for a published lead", async () => {

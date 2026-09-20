@@ -71,5 +71,6 @@ using ((select private.is_internal_member()));
 -- Application users deliberately receive no insert/update/delete policy.
 -- Scheduled writes use a server-only Supabase secret and never a client token.
 revoke all on table public.lead_discovery_items from anon;
+revoke insert, update, delete on table public.lead_discovery_items from authenticated;
 grant select on table public.lead_discovery_items to authenticated;
 grant all on table public.lead_discovery_items to service_role;
