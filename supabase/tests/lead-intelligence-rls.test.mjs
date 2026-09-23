@@ -50,6 +50,21 @@ if (!readConfig().ok) {
       started_at: new Date().toISOString(),
       completed_at: new Date().toISOString(),
     });
+    const discoveryItem = await insert(svc, "lead_discovery_items", {
+      organization_id: ctx.orgIds.clientA,
+      hunt_id: huntA.id,
+      hunt_run_id: runA.id,
+      source_key: "sec-8k:0001193125-25-060947",
+      source_type: "sec_daily_index",
+      source_url: "https://www.sec.gov/Archives/edgar/data/1766363/0001193125-25-060947.txt",
+      form_type: "8-K",
+      accession_number: "0001193125-25-060947",
+      issuer_cik: "1766363",
+      filing_date: "2025-03-24",
+      status: "completed",
+      processed_at: new Date().toISOString(),
+      metadata: { parser_private: true },
+    });
     const publishedSignalA = await insert(svc, "lead_signals", {
       organization_id: ctx.orgIds.clientA,
       hunt_id: huntA.id,
@@ -92,6 +107,7 @@ if (!readConfig().ok) {
     ctx.ids = {
       huntA: huntA.id,
       runA: runA.id,
+      discoveryItem: discoveryItem.id,
       publishedSignalA: publishedSignalA.id,
       unpublishedSignalA: unpublishedSignalA.id,
       publishedA: publishedA.id,
@@ -114,10 +130,55 @@ if (!readConfig().ok) {
     denied(await read(ctx.clients.clientAAdmin, "lead_candidates", (q) => q.eq("id", ctx.ids.publishedB)), "cross-tenant lead leaked");
   });
 
-  test("client cannot read private details, hunts, runs, gate ledger, or vendor costs", async () => {
-    for (const table of ["lead_candidate_private_details", "lead_hunts", "lead_signals", "lead_hunt_runs", "lead_gate_events", "lead_vendor_usage"]) {
+  test("client cannot read private details, discovery inbox, hunts, runs, gate ledger, or vendor costs", async () => {
+    for (const table of ["lead_candidate_private_details", "lead_discovery_items", "lead_hunts", "lead_signals", "lead_hunt_runs", "lead_gate_events", "lead_vendor_usage"]) {
       denied(await read(ctx.clients.clientAAdmin, table), `${table} leaked`);
     }
+  });
+
+  test("authenticated users cannot write discovery inbox while service role can", async () => {
+    const attemptedInsert = await ctx.clients.internalAdmin.from("lead_discovery_items").insert({
+      organization_id: ctx.orgIds.clientA,
+      hunt_id: ctx.ids.huntA,
+      source_key: "sec-8k:0001193125-25-060948",
+      source_type: "sec_daily_index",
+      source_url: "https://www.sec.gov/Archives/edgar/data/1766363/0001193125-25-060948.txt",
+      form_type: "8-K",
+      accession_number: "0001193125-25-060948",
+      issuer_cik: "1766363",
+      filing_date: "2025-03-24",
+    }).select("*");
+    assert.ok(attemptedInsert.error || attemptedInsert.data.length === 0);
+
+    const attemptedUpdate = await ctx.clients.internalAdmin
+      .from("lead_discovery_items")
+      .update({ last_error_code: "forged_authenticated_write" })
+      .eq("id", ctx.ids.discoveryItem)
+      .select("*");
+    assert.ok(attemptedUpdate.error || attemptedUpdate.data.length === 0);
+
+    const attemptedDelete = await ctx.clients.internalAdmin
+      .from("lead_discovery_items")
+      .delete()
+      .eq("id", ctx.ids.discoveryItem)
+      .select("*");
+    assert.ok(attemptedDelete.error || attemptedDelete.data.length === 0);
+
+    const svc = serviceClient();
+    const serviceUpdate = await svc
+      .from("lead_discovery_items")
+      .update({ last_error_code: "service_role_write_probe" })
+      .eq("id", ctx.ids.discoveryItem)
+      .select("id, last_error_code")
+      .single();
+    assert.equal(serviceUpdate.error, null);
+    assert.equal(serviceUpdate.data.last_error_code, "service_role_write_probe");
+
+    const serviceReset = await svc
+      .from("lead_discovery_items")
+      .update({ last_error_code: null })
+      .eq("id", ctx.ids.discoveryItem);
+    assert.equal(serviceReset.error, null);
   });
 
   test("client sees only client-safe evidence for a published lead", async () => {
@@ -170,9 +231,11 @@ if (!readConfig().ok) {
   test("internal member can read complete records and private details", async () => {
     const leads = await read(ctx.clients.internalMember, "lead_candidates");
     const privateDetails = await read(ctx.clients.internalMember, "lead_candidate_private_details");
+    const discoveryItems = await read(ctx.clients.internalMember, "lead_discovery_items");
     const gates = await read(ctx.clients.internalMember, "lead_gate_events");
     assert.equal(leads.error, null); assert.ok(leads.data.length >= 3);
     assert.equal(privateDetails.error, null); assert.ok(privateDetails.data.some((row) => row.dedupe_key === "private-dedupe-key"));
+    assert.equal(discoveryItems.error, null); assert.ok(discoveryItems.data.some((row) => row.source_key === "sec-8k:0001193125-25-060947"));
     assert.equal(gates.error, null);
   });
 

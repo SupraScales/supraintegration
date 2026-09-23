@@ -1,6 +1,6 @@
 import { ProductPageHeader, StatusBadge } from "@/components/product-shell";
 import { getHermesLeadIntelligence } from "@/lib/lead-intelligence";
-import { runDealerExpansionAction, runSecIpoAction, runSecMnaAction, runSecPocAction, updateLeadCandidateState } from "@/app/hermes/clients/[clientId]/lead-intelligence/actions";
+import { runDealerExpansionAction, runSecIpoAction, runSecMnaAction, runSecMnaDiscoveryNowAction, runSecPocAction, updateLeadCandidateState } from "@/app/hermes/clients/[clientId]/lead-intelligence/actions";
 import { leadEventAmountLabel } from "@/lib/lead-intelligence/client-presentation";
 
 function pretty(value: unknown) {
@@ -37,8 +37,11 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
     feedback,
     hunts,
     signals,
+    runs,
     runSummaries,
     gateEvents,
+    discoveryItems,
+    discoveryError,
   } = await getHermesLeadIntelligence(clientId);
   const privateByCandidate = new Map(privateDetails.map((item) => [item.candidate_id, item]));
   const candidateById = new Map(candidates.map((candidate) => [candidate.id, candidate]));
@@ -46,6 +49,14 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
   const runSecMna = runSecMnaAction.bind(null, clientId);
   const runDealerExpansion = runDealerExpansionAction.bind(null, clientId);
   const runSecIpo = runSecIpoAction.bind(null, clientId);
+  const runDiscoveryNow = runSecMnaDiscoveryNowAction.bind(null, clientId);
+  const discoveryConfigured = process.env.SKYSHARE_DISCOVERY_ORGANIZATION_ID?.trim() === clientId;
+  const discoveryEnabled = discoveryConfigured
+    && process.env.SKYSHARE_DISCOVERY_HUNT2_ENABLED?.trim().toLowerCase() === "true";
+  const discoveryHunt = hunts.find((hunt) => hunt.hunt_key === "sec-8k-western-founder-mna-100m");
+  const discoveryRuns = runs.filter((run) => run.trigger_kind === "system" && run.hunt_id === discoveryHunt?.id);
+  const lastDiscoveryAttempt = discoveryRuns[0];
+  const lastDiscoverySuccess = discoveryRuns.find((run) => run.status === "completed");
 
   return (
     <>
@@ -55,6 +66,31 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
         description={`Internal hunting, qualification, QA, and publication for ${client.name}. Raw signals, gate decisions, and private scoring stay inside Hermes.`}
         actions={<StatusBadge>{candidates.length} candidates</StatusBadge>}
       />
+
+      <section className="product-section">
+        <div className="product-section-heading">
+          <div><p className="product-kicker"><span aria-hidden />SEC Hunt #2 discovery</p><h2>Daily official filing inbox</h2></div>
+          <StatusBadge>{discoveryEnabled ? "Enabled" : "Disabled"}</StatusBadge>
+        </div>
+        <div className="product-panel">
+          <p>Seven-day SEC daily-index reconciliation. Discovered filings remain internal and qualified candidates remain unpublished for Hermes review.</p>
+          {discoveryError ? <p>Discovery storage unavailable: {discoveryError}</p> : null}
+          {discoveryEnabled ? <form action={runDiscoveryNow}><button type="submit">Run discovery now</button></form> : null}
+          <p>Last attempt: {lastDiscoveryAttempt ? `${time(String(lastDiscoveryAttempt.started_at ?? lastDiscoveryAttempt.created_at))} · ${String(lastDiscoveryAttempt.status)}` : "Never"}</p>
+          <p>Last success: {lastDiscoverySuccess ? time(String(lastDiscoverySuccess.completed_at)) : "Never"}</p>
+          {lastDiscoveryAttempt ? <details><summary>Latest discovery counts</summary><pre>{pretty(lastDiscoveryAttempt.summary)}</pre></details> : null}
+          <p>{discoveryItems.length} recent inbox items</p>
+          <ul>
+            {discoveryItems.slice(0, 10).map((item) => (
+              <li key={item.id}>
+                <a href={item.source_url} target="_blank" rel="noreferrer">{item.accession_number}</a>
+                {` · ${item.form_type} · ${item.status} · attempts ${item.attempt_count}`}
+                {item.last_error_code ? ` · ${item.last_error_code}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
 
       <section className="product-section">
         <div className="product-section-heading">

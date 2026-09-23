@@ -1,0 +1,28 @@
+export const SEC_DAILY_INDEX_FIXTURE = `Description: Master Index of EDGAR Dissemination Feed
+Last Data Received: March 24, 2025
+Comments: webmaster@sec.gov
+
+CIK|Company Name|Form Type|Date Filed|File Name
+--------------------------------------------------------------------------------
+1766363|ENDEAVOR GROUP HOLDINGS INC|8-K|20250324|edgar/data/1766363/0001193125-25-060947.txt
+1766363|ENDEAVOR GROUP HOLDINGS INC|8-K/A|20250325|edgar/data/1766363/0001193125-25-060948.txt
+1234567|UNRELATED COMPANY|10-Q|20250324|edgar/data/1234567/0001234567-25-000001.txt
+not-a-cik|BROKEN MNA ENTRY|8-K|20250324|edgar/data/broken.txt
+1766363|ENDEAVOR GROUP HOLDINGS INC|8-K|20250324|edgar/data/1766363/0001193125-25-060947.txt
+`;
+
+export const ITEM_201_SUBMISSION_FIXTURE = `<SEC-DOCUMENT>
+<SEC-HEADER>
+CONFORMED SUBMISSION TYPE: 8-K
+ITEM INFORMATION: 2.01
+</SEC-HEADER>
+<DOCUMENT><TYPE>8-K</TYPE><TEXT><p>Item 2.01 Completion of Acquisition or Disposition of Assets.</p></TEXT></DOCUMENT>
+</SEC-DOCUMENT>`;
+
+export const IRRELEVANT_8K_SUBMISSION_FIXTURE = `<SEC-DOCUMENT>
+<SEC-HEADER>
+CONFORMED SUBMISSION TYPE: 8-K
+ITEM INFORMATION: 5.02
+</SEC-HEADER>
+<DOCUMENT><TYPE>8-K</TYPE><TEXT><p>Item 5.02 Departure of Directors.</p></TEXT></DOCUMENT>
+</SEC-DOCUMENT>`;

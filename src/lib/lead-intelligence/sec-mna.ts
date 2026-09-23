@@ -6,29 +6,24 @@ import {
   parseSecMnaFiling,
   type SecMnaDocument,
 } from "@/lib/lead-intelligence/sec-mna-parser";
+import { fetchSecText } from "@/lib/lead-intelligence/sec-fetch";
 
-const SEC_USER_AGENT = "Supra Integration Lead Intelligence SupraScales@suprascales.com";
+type SecTextFetcher = typeof fetchSecText;
 
-async function fetchSecHtml(url: string) {
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": SEC_USER_AGENT,
-      "Accept-Encoding": "gzip, deflate",
-      Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.1",
-    },
-    cache: "no-store",
+async function fetchSecHtml(url: string, fetcher: SecTextFetcher) {
+  return fetcher(url, {
+    accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.1",
+    maxBytes: 8 * 1024 * 1024,
   });
-  if (!response.ok) throw new Error(`SEC returned ${response.status} for a filing document.`);
-  return response.text();
 }
 
-export async function fetchAndParseSecMna(filingUrl: string) {
+export async function fetchAndParseSecMna(filingUrl: string, fetcher: SecTextFetcher = fetchSecText) {
   const indexUrl = canonicalSecMnaIndexUrl(filingUrl);
-  const indexHtml = await fetchSecHtml(indexUrl);
+  const indexHtml = await fetchSecHtml(indexUrl, fetcher);
   const documentReferences = discoverSecMnaDocuments(indexUrl, indexHtml);
   const documents: SecMnaDocument[] = await Promise.all(documentReferences.map(async (document) => ({
     ...document,
-    html: await fetchSecHtml(document.url),
+    html: await fetchSecHtml(document.url, fetcher),
   })));
   return parseSecMnaFiling({ indexUrl, indexHtml, documents });
 }
