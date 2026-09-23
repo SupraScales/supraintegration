@@ -8,6 +8,7 @@ import {
 } from "@/lib/lead-intelligence/sec-discovery-parser";
 
 export {
+  completedSecIndexDates,
   hasItem201Prefilter,
   parseSecDailyMasterIndex,
   rollingUtcDates,

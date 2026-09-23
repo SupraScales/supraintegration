@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { discoveryEnabled, discoveryFailureTransition, staleProcessingCutoff } from "@/lib/lead-intelligence/discovery-policy";
-import { fetchSecDailyIndex, prefilterSecMnaSubmission, rollingUtcDates, type SecDiscoveryEntry } from "@/lib/lead-intelligence/sec-discovery";
+import { completedSecIndexDates, fetchSecDailyIndex, prefilterSecMnaSubmission, type SecDiscoveryEntry } from "@/lib/lead-intelligence/sec-discovery";
 import { isSecTransportError } from "@/lib/lead-intelligence/sec-fetch";
 import { createSecFetcher } from "@/lib/lead-intelligence/sec-fetch-core";
 import { ensureSecMnaHunt, executeSecMnaHunter } from "@/lib/lead-intelligence/sec-mna-poc";
@@ -173,7 +173,7 @@ export async function runSkyshareDiscovery(
 
   try {
     const discovered = new Map<string, SecDiscoveryEntry>();
-    for (const date of rollingUtcDates(now, RECONCILIATION_DAYS)) {
+    for (const date of completedSecIndexDates(now, RECONCILIATION_DAYS)) {
       const result = await fetchSecDailyIndex(date, secFetcher);
       if (result.missing) continue;
       counters.indexes_fetched += 1;

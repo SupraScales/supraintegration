@@ -22,7 +22,8 @@ function isDate(value: string) {
 
 function entryFromParts(parts: string[]): SecDiscoveryEntry | null {
   if (parts.length !== 5) return null;
-  const [companyName, formType, cik, filingDate, filingPath] = parts.map((part) => part.trim());
+  const [cik, companyName, formType, compactFilingDate, filingPath] = parts.map((part) => part.trim());
+  const filingDate = compactFilingDate.replace(/^(\d{4})(\d{2})(\d{2})$/, "$1-$2-$3");
   if (formType !== "8-K" && formType !== "8-K/A") return null;
   if (!/^\d{1,10}$/.test(cik) || !isDate(filingDate)) return null;
   const accessionNumber = filingPath.match(/([0-9]{10}-[0-9]{2}-[0-9]{6})\.txt$/)?.[1];
@@ -52,7 +53,7 @@ export function parseSecDailyMasterIndex(indexText: string): ParsedSecDailyIndex
     if (!line) continue;
     entriesSeen += 1;
     const parts = line.split("|");
-    const formType = parts[1]?.trim();
+    const formType = parts[2]?.trim();
     if (formType !== "8-K" && formType !== "8-K/A") continue;
     const entry = entryFromParts(parts);
     if (entry) entries.push(entry);
@@ -75,6 +76,15 @@ export function rollingUtcDates(now: Date, days: number) {
     const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - index));
     return date.toISOString().slice(0, 10);
   }).reverse();
+}
+
+export function completedSecIndexDates(now: Date, days: number) {
+  const today = now.toISOString().slice(0, 10);
+  return rollingUtcDates(now, days).filter((date) => {
+    if (date >= today) return false;
+    const day = new Date(`${date}T00:00:00Z`).getUTCDay();
+    return day !== 0 && day !== 6;
+  });
 }
 
 export function hasItem201Prefilter(submissionText: string) {
