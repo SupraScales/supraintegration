@@ -1,12 +1,28 @@
 import "server-only";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireInternalAdmin } from "@/lib/auth";
 import { requireHermesClient } from "@/lib/hermes";
+import { fetchSecText, isSecTransportError } from "@/lib/lead-intelligence/sec-fetch";
 import { fetchAndParseSecIpo } from "@/lib/lead-intelligence/sec-ipo";
 import { buildSecIpoCandidateDraft, type SecIpoGateReason } from "@/lib/lead-intelligence/sec-ipo-parser";
 
 export const SEC_IPO_HUNT_KEY = "sec-western-founder-ipo-100m";
 const HUNT_LABEL = "$100M+ Western Founder IPO Listings";
+const HUNT_CONFIGURATION = {
+  source: "sec_424b4_and_cert",
+  minimum_base_offering_usd: 100_000_000,
+  final_prospectus_required: true,
+  exchange_certification_required: true,
+  initial_ipo_required: true,
+  operating_company_required: true,
+  founder_required: true,
+  economic_connection_required: true,
+  western11_required: true,
+  ingest: "manual_official_sec_urls",
+  financial_policy: "exact_integer_cents_separate_primary_secondary_founder",
+  model_policy: "deterministic_only",
+};
 
 type GateReason = "raw_signal_seen" | SecIpoGateReason | "duplicate" | "qualified" | "enrichment_needed";
 type GateKind = "signal_seen" | "rejection" | "qualification" | "enrichment";
@@ -14,6 +30,20 @@ type GateKind = "signal_seen" | "rejection" | "qualification" | "enrichment";
 export type SecIpoHunterResult =
   | { outcome: "candidate_created" | "duplicate"; candidateId: string; recommendation: "whale" | "good"; amount: number }
   | { outcome: "rejected"; reason: string; amount: number };
+
+type SecIpoExecutionInput = {
+  supabase: SupabaseClient;
+  organizationId: string;
+  huntId: string;
+  runId: string;
+  actorUserId: string | null;
+  prospectusUrl: string;
+  certUrl: string;
+  adapter: "form424b4_cert_manual" | "form424b4_cert_system";
+  finalizeRun: boolean;
+  retryTransportFailures: boolean;
+  secFetcher?: typeof fetchSecText;
+};
 
 function parserFailure(error: unknown) {
   const message = error instanceof Error ? error.message : "SEC IPO filings could not be parsed.";
@@ -30,42 +60,73 @@ export async function runSecIpoHunter(
 ): Promise<SecIpoHunterResult> {
   const access = await requireInternalAdmin();
   const { supabase } = await requireHermesClient(clientId);
-
-  const { data: hunt, error: huntError } = await supabase.from("lead_hunts").upsert({
-    organization_id: clientId,
-    hunt_key: SEC_IPO_HUNT_KEY,
-    label: HUNT_LABEL,
-    priority: "p0",
-    enabled: true,
-    configuration: {
-      source: "sec_424b4_and_cert",
-      minimum_base_offering_usd: 100_000_000,
-      final_prospectus_required: true,
-      exchange_certification_required: true,
-      initial_ipo_required: true,
-      operating_company_required: true,
-      founder_required: true,
-      economic_connection_required: true,
-      western11_required: true,
-      ingest: "manual_official_sec_urls",
-      financial_policy: "exact_integer_cents_separate_primary_secondary_founder",
-      model_policy: "deterministic_only",
-    },
-    updated_by: access.user.id,
-  }, { onConflict: "organization_id,hunt_key" }).select("id").single();
-  if (huntError || !hunt) throw new Error("SEC IPO hunt could not be initialized.");
-  const huntId = hunt.id;
+  const hunt = await ensureSecIpoHunt(supabase, clientId, access.user.id);
 
   const { data: run, error: runError } = await supabase.from("lead_hunt_runs").insert({
     organization_id: clientId,
-    hunt_id: huntId,
+    hunt_id: hunt.id,
     status: "running",
     trigger_kind: "manual",
     started_at: new Date().toISOString(),
     created_by: access.user.id,
   }).select("id").single();
   if (runError || !run) throw new Error("SEC IPO hunt run could not be created.");
-  const runId = run.id;
+  return executeSecIpoHunter({
+    supabase,
+    organizationId: clientId,
+    huntId: hunt.id,
+    runId: run.id,
+    actorUserId: access.user.id,
+    prospectusUrl,
+    certUrl,
+    adapter: "form424b4_cert_manual",
+    finalizeRun: true,
+    retryTransportFailures: false,
+  });
+}
+
+export async function ensureSecIpoHunt(
+  supabase: SupabaseClient,
+  organizationId: string,
+  actorUserId: string | null,
+) {
+  const { data: existing, error: lookupError } = await supabase
+    .from("lead_hunts")
+    .select("id, enabled")
+    .eq("organization_id", organizationId)
+    .eq("hunt_key", SEC_IPO_HUNT_KEY)
+    .maybeSingle();
+  if (lookupError) throw new Error("SEC IPO hunt lookup failed.");
+  if (existing) return existing as { id: string; enabled: boolean };
+
+  const { data: created, error: createError } = await supabase.from("lead_hunts").insert({
+    organization_id: organizationId,
+    hunt_key: SEC_IPO_HUNT_KEY,
+    label: HUNT_LABEL,
+    priority: "p0",
+    enabled: true,
+    configuration: HUNT_CONFIGURATION,
+    created_by: actorUserId,
+    updated_by: actorUserId,
+  }).select("id, enabled").single();
+  if (createError || !created) throw new Error("SEC IPO hunt could not be initialized.");
+  return created as { id: string; enabled: boolean };
+}
+
+export async function executeSecIpoHunter(input: SecIpoExecutionInput): Promise<SecIpoHunterResult> {
+  const {
+    supabase,
+    organizationId,
+    huntId,
+    runId,
+    actorUserId,
+    prospectusUrl,
+    certUrl,
+    adapter,
+    finalizeRun,
+    retryTransportFailures,
+    secFetcher,
+  } = input;
 
   async function recordGate(input: {
     kind: GateKind;
@@ -75,7 +136,7 @@ export async function runSecIpoHunter(
     evidence?: Record<string, unknown>;
   }) {
     const { error } = await supabase.from("lead_gate_events").insert({
-      organization_id: clientId,
+      organization_id: organizationId,
       hunt_id: huntId,
       hunt_run_id: runId,
       signal_id: input.signalId ?? null,
@@ -92,6 +153,7 @@ export async function runSecIpoHunter(
   }
 
   async function completeRun(summary: Record<string, unknown>) {
+    if (!finalizeRun) return;
     const { error } = await supabase.from("lead_hunt_runs").update({
       status: "completed",
       completed_at: new Date().toISOString(),
@@ -102,7 +164,7 @@ export async function runSecIpoHunter(
         paid_vendor_usage: 0,
         external_cost: 0,
       },
-    }).eq("id", runId).eq("organization_id", clientId);
+    }).eq("id", runId).eq("organization_id", organizationId);
     if (error) throw new Error("SEC IPO run summary could not be stored.");
   }
 
@@ -121,8 +183,9 @@ export async function runSecIpoHunter(
   try {
     let parsed;
     try {
-      parsed = await fetchAndParseSecIpo(prospectusUrl, certUrl);
+      parsed = await fetchAndParseSecIpo(prospectusUrl, certUrl, secFetcher);
     } catch (error) {
+      if (retryTransportFailures && isSecTransportError(error)) throw error;
       const failure = parserFailure(error);
       await recordGate({ kind: "rejection", reason: failure.gateReason, evidence: { reason: "filing_parse_failed", parser_error: failure.message } });
       await completeRun({ raw_signals: 1, rejected: 1, qualified: 0, rejection_reason: "filing_parse_failed" });
@@ -155,33 +218,46 @@ export async function runSecIpoHunter(
       western_state: parsed.westernState,
       candidate_event_key: parsed.candidateEventKey,
     };
-    const { data: signal, error: signalError } = await supabase.from("lead_signals").insert({
-      organization_id: clientId,
-      hunt_id: huntId,
-      hunt_run_id: runId,
-      source_type: "sec_424b4",
-      source_record_id: parsed.signalKey,
-      source_url: parsed.prospectusIndexUrl,
-      event_type: "completed_founder_ipo",
-      title: `${parsed.founderName ?? "Unresolved founder"} — ${parsed.companyName ?? "unresolved issuer"}`,
-      occurred_at: parsed.listingDate ? `${parsed.listingDate}T00:00:00Z` : null,
-      geography: {
-        city: parsed.westernCity,
-        state: parsed.westernState,
-        western11: parsed.westernRelevant,
-        basis: parsed.westernRelevant ? "principal_operating_office" : null,
-      },
-      normalized_payload: normalizedPayload,
-      raw_payload: {
-        prospectus_index_url: parsed.prospectusIndexUrl,
-        prospectus_document_url: parsed.prospectusDocumentUrl,
-        cert_index_url: parsed.certIndexUrl,
-        signal_key: parsed.signalKey,
-        cert_signal_key: parsed.certSignalKey,
-        parser_excerpts: parsed.internalExcerpts,
-      },
-    }).select("id").single();
-    if (signalError || !signal) throw new Error("SEC IPO signal could not be stored.");
+    const { data: existingSignal, error: signalLookupError } = await supabase
+      .from("lead_signals")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .eq("hunt_id", huntId)
+      .eq("source_record_id", parsed.signalKey)
+      .maybeSingle();
+    if (signalLookupError) throw new Error("SEC IPO signal lookup failed.");
+
+    let signal = existingSignal as { id: string } | null;
+    if (!signal) {
+      const { data: insertedSignal, error: signalError } = await supabase.from("lead_signals").insert({
+        organization_id: organizationId,
+        hunt_id: huntId,
+        hunt_run_id: runId,
+        source_type: "sec_424b4",
+        source_record_id: parsed.signalKey,
+        source_url: parsed.prospectusIndexUrl,
+        event_type: "completed_founder_ipo",
+        title: `${parsed.founderName ?? "Unresolved founder"} — ${parsed.companyName ?? "unresolved issuer"}`,
+        occurred_at: parsed.listingDate ? `${parsed.listingDate}T00:00:00Z` : null,
+        geography: {
+          city: parsed.westernCity,
+          state: parsed.westernState,
+          western11: parsed.westernRelevant,
+          basis: parsed.westernRelevant ? "principal_operating_office" : null,
+        },
+        normalized_payload: normalizedPayload,
+        raw_payload: {
+          prospectus_index_url: parsed.prospectusIndexUrl,
+          prospectus_document_url: parsed.prospectusDocumentUrl,
+          cert_index_url: parsed.certIndexUrl,
+          signal_key: parsed.signalKey,
+          cert_signal_key: parsed.certSignalKey,
+          parser_excerpts: parsed.internalExcerpts,
+        },
+      }).select("id").single();
+      if (signalError || !insertedSignal) throw new Error("SEC IPO signal could not be stored.");
+      signal = insertedSignal;
+    }
 
     if (!parsed.qualification.qualified) {
       await recordGate({
@@ -203,7 +279,7 @@ export async function runSecIpoHunter(
     const { data: existing, error: existingError } = await supabase
       .from("lead_candidate_private_details")
       .select("candidate_id")
-      .eq("organization_id", clientId)
+      .eq("organization_id", organizationId)
       .eq("dedupe_key", draft.dedupeKey)
       .maybeSingle();
     if (existingError) throw new Error("SEC IPO dedupe lookup failed.");
@@ -232,7 +308,7 @@ export async function runSecIpoHunter(
     const companyToken = draft.companyName.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12).toUpperCase();
     const supraLeadId = `IPO-${companyToken}-${draft.eventDate.replaceAll("-", "")}-${personToken}`;
     const { data: candidate, error: candidateError } = await supabase.from("lead_candidates").insert({
-      organization_id: clientId,
+      organization_id: organizationId,
       supra_lead_id: supraLeadId,
       source_hunt_key: SEC_IPO_HUNT_KEY,
       source_hunt_label: HUNT_LABEL,
@@ -257,14 +333,14 @@ export async function runSecIpoHunter(
       likely_product_fit: draft.likelyProductFit,
       status: "qualified",
       publication_state: "unpublished",
-      created_by: access.user.id,
-      updated_by: access.user.id,
+      created_by: actorUserId,
+      updated_by: actorUserId,
     }).select("id").single();
     if (candidateError || !candidate) throw new Error("SEC IPO candidate could not be stored.");
 
     const { error: privateError } = await supabase.from("lead_candidate_private_details").insert({
       candidate_id: candidate.id,
-      organization_id: clientId,
+      organization_id: organizationId,
       hunt_id: huntId,
       signal_id: signal.id,
       dedupe_key: draft.dedupeKey,
@@ -272,7 +348,7 @@ export async function runSecIpoHunter(
       internal_reasoning: "Deterministic SEC 424B4 + CERT qualification. Total, company-primary, aggregate secondary, founder-specific secondary, and retained-equity values remain distinct. No model or paid vendor was used.",
       source_orchestration: {
         source: "sec.gov",
-        adapter: "form424b4_cert_manual",
+        adapter,
         prospectus_accession: parsed.prospectusAccession,
         cert_accession: parsed.certAccession,
         signal_key: parsed.signalKey,
@@ -302,13 +378,13 @@ export async function runSecIpoHunter(
         personal_liquidity: "unknown_not_inferred",
       },
       vendor_payloads: {},
-      updated_by: access.user.id,
+      updated_by: actorUserId,
     });
     if (privateError) throw new Error("SEC IPO private details could not be stored.");
 
     const { error: evidenceError } = await supabase.from("lead_evidence").insert(
       draft.clientEvidence.map((item) => ({
-        organization_id: clientId,
+        organization_id: organizationId,
         candidate_id: candidate.id,
         label: item.label,
         source_url: item.sourceUrl,
@@ -316,7 +392,7 @@ export async function runSecIpoHunter(
         summary: item.summary,
         captured_at: new Date().toISOString(),
         client_visible: true,
-        created_by: access.user.id,
+        created_by: actorUserId,
       })),
     );
     if (evidenceError) throw new Error("SEC IPO evidence could not be stored.");
@@ -344,11 +420,13 @@ export async function runSecIpoHunter(
     await completeRun({ raw_signals: 1, rejected: 0, qualified: 1, enrichment_needed: 1, recommendation: draft.systemRecommendation, score: draft.whaleScore });
     return { outcome: "candidate_created", candidateId: candidate.id, recommendation: draft.systemRecommendation, amount: draft.eventAmount };
   } catch (error) {
-    await supabase.from("lead_hunt_runs").update({
-      status: "failed",
-      completed_at: new Date().toISOString(),
-      error: error instanceof Error ? error.message : "Unknown SEC IPO hunter error",
-    }).eq("id", runId).eq("organization_id", clientId);
+    if (finalizeRun) {
+      await supabase.from("lead_hunt_runs").update({
+        status: "failed",
+        completed_at: new Date().toISOString(),
+        error: error instanceof Error ? error.message : "Unknown SEC IPO hunter error",
+      }).eq("id", runId).eq("organization_id", organizationId);
+    }
     throw error;
   }
 }
