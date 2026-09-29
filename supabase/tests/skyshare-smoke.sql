@@ -96,7 +96,7 @@ values
 insert into lead_discovery_items(organization_id,hunt_id,source_key,source_type,source_url,form_type,accession_number,issuer_cik,filing_date)
 values('85ded2c8-d4b0-4109-b3c0-ef8c15ab4922',current_setting('skyshare_smoke.hunt4_id')::uuid,'sec-424b4:0001628280-25-037014','sec_daily_index','https://www.sec.gov/Archives/edgar/data/1579878/0001628280-25-037014.txt','424B4','0001628280-25-037014','1579878','2025-07-31')
 on conflict(organization_id,hunt_id,source_key) do nothing;
-select pg_temp.check_ok((select count(*)=2 from lead_discovery_items where hunt_id=current_setting('skyshare_smoke.hunt4_id')::uuid), 'Hunt #4 discovery reuses inbox and dedupes stable filing keys');
+select pg_temp.check_ok((select count(*)=2 from lead_discovery_items where hunt_id=current_setting('skyshare_smoke.hunt4_id')::uuid and source_key in ('sec-424b4:0001628280-25-037014','sec-cert:0000876661-25-000534')), 'Hunt #4 discovery reuses inbox and dedupes stable filing keys');
 set local role authenticated;
 insert into lead_hunt_runs(id,organization_id,hunt_id,status,trigger_kind) values('eeeeeeee-0000-4000-8000-00000000000e','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922',current_setting('skyshare_smoke.hunt4_id')::uuid,'running','manual');
 insert into lead_signals(id,organization_id,hunt_id,hunt_run_id,source_type,source_record_id,source_url,event_type,title,occurred_at,geography,normalized_payload,raw_payload)
