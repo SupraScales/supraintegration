@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import time
 import urllib.robotparser
 from collections import deque
@@ -20,6 +21,8 @@ from .policy import Resolver, UrlPolicyError, validate_public_url, validate_redi
 LOGGER = logging.getLogger("skyshare_scrapling")
 USER_AGENT = "SupraIntegration-PublicWebDiscovery/0.1 (+mailto:SupraScales@suprascales.com)"
 REDIRECT_STATUSES = {301, 302, 303, 307, 308}
+CONTENT_RANGE_PATTERN = re.compile(r"bytes (\d+)-(\d+)/(\d+)", re.IGNORECASE)
+ROBOTS_DENY_ALL = ["User-agent: *", "Disallow: /"]
 
 
 class FetchResponse(Protocol):
@@ -41,6 +44,25 @@ Fetcher = Callable[[str], Awaitable[FetchResponse]]
 
 def log_event(event: str, **values: object) -> None:
     LOGGER.info(json.dumps({"event": event, **values}, sort_keys=True))
+
+
+def validate_partial_content(response: FetchResponse, *, require_complete: bool = False) -> None:
+    content_range = next(
+        (value for key, value in response.headers.items() if key.lower() == "content-range"),
+        "",
+    )
+    match = CONTENT_RANGE_PATTERN.fullmatch(content_range.strip())
+    if not match:
+        raise ValueError("missing_or_malformed_content_range")
+    start, end, total = (int(value) for value in match.groups())
+    if start != 0:
+        raise ValueError("partial_content_did_not_start_at_zero")
+    if end < start or total <= end:
+        raise ValueError("invalid_content_range_bounds")
+    if len(response.body) != end - start + 1:
+        raise ValueError("content_range_body_length_mismatch")
+    if require_complete and end + 1 != total:
+        raise ValueError("partial_content_is_truncated")
 
 
 async def scrapling_fetch(url: str, *, timeout_seconds: int = 15) -> FetchResponse:
@@ -137,6 +159,25 @@ class DomainCrawler:
             response = await self._fetch_with_redirects(robots_url)
             if response.status == 200:
                 parser.parse(response.body.decode("utf-8", "replace").splitlines())
+            elif response.status == 206:
+                try:
+                    validate_partial_content(response, require_complete=True)
+                except ValueError as error:
+                    log_event(
+                        "partial_response_rejected",
+                        context="robots",
+                        domain=self.config.domain,
+                        reason=str(error),
+                    )
+                    parser.parse(ROBOTS_DENY_ALL)
+                else:
+                    log_event(
+                        "partial_response_accepted",
+                        context="robots",
+                        domain=self.config.domain,
+                        complete=True,
+                    )
+                    parser.parse(response.body.decode("utf-8", "replace").splitlines())
             else:
                 parser.parse([])
         except (RuntimeError, UrlPolicyError):
@@ -170,7 +211,27 @@ class DomainCrawler:
             try:
                 response = await self._fetch_with_redirects(url)
                 counters.pages_fetched += 1
-                if response.status != 200:
+                if response.status == 206:
+                    try:
+                        validate_partial_content(response)
+                    except ValueError as error:
+                        counters.failed += 1
+                        log_event(
+                            "partial_response_rejected",
+                            context="page",
+                            domain=self.config.domain,
+                            reason=str(error),
+                            url=url,
+                        )
+                        continue
+                    log_event(
+                        "partial_response_accepted",
+                        context="page",
+                        domain=self.config.domain,
+                        complete=False,
+                        url=url,
+                    )
+                elif response.status != 200:
                     counters.failed += 1
                     continue
                 content_type = response.headers.get("content-type", "").lower()

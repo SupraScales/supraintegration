@@ -61,6 +61,18 @@ def fixture_fetcher(fail_team: bool = False):
     return fetch
 
 
+def partial_response(body: bytes, url: str, *, content_type: str = "text/html") -> Response:
+    return Response(
+        206,
+        {
+            "content-type": content_type,
+            "content-range": f"bytes 0-{len(body) - 1}/{len(body)}",
+        },
+        body,
+        url,
+    )
+
+
 def crawl(fetcher=None):
     crawler = DomainCrawler(
         DomainConfig("Example Motors", "example.com", ("https://example.com/",)),
@@ -83,6 +95,58 @@ def test_crawl_stays_on_allowlist_discovers_event_and_team_and_dedupes() -> None
     assert counters.ownership_pages == 1
     assert counters.pages_fetched == 3
     assert all("evil.test" not in item.canonical_url for item in items)
+
+
+def test_valid_byte_zero_partial_html_discovers_event_and_team_evidence() -> None:
+    original = fixture_fetcher()
+
+    async def partial_pages(url: str) -> Response:
+        response = await original(url)
+        if url.endswith("robots.txt"):
+            return response
+        return partial_response(response.body, response.url)
+
+    items, counters = crawl(partial_pages)
+    assert {item.canonical_url for item in items} == {
+        "https://example.com/news/acquisition",
+        "https://example.com/team",
+    }
+    assert counters.event_pages == 1
+    assert counters.ownership_pages == 1
+    assert counters.failed == 0
+
+
+def test_partial_html_with_nonzero_start_is_rejected() -> None:
+    async def nonzero_start(url: str) -> Response:
+        if url.endswith("robots.txt"):
+            return Response(200, {"content-type": "text/plain"}, b"User-agent: *\nAllow: /", url)
+        body = b"<html><body>Example Motors completed its acquisition.</body></html>"
+        return Response(
+            206,
+            {"content-type": "text/html", "content-range": f"bytes 1-{len(body)}/{len(body) + 1}"},
+            body,
+            url,
+        )
+
+    items, counters = crawl(nonzero_start)
+    assert items == []
+    assert counters.failed == 1
+
+
+def test_partial_html_with_malformed_content_range_is_rejected() -> None:
+    async def malformed(url: str) -> Response:
+        if url.endswith("robots.txt"):
+            return Response(200, {"content-type": "text/plain"}, b"User-agent: *\nAllow: /", url)
+        return Response(
+            206,
+            {"content-type": "text/html", "content-range": "items 0-10/11"},
+            b"hello world",
+            url,
+        )
+
+    items, counters = crawl(malformed)
+    assert items == []
+    assert counters.failed == 1
 
 
 def test_rerun_has_stable_discovery_keys() -> None:
@@ -152,3 +216,63 @@ def test_robots_disallow_prevents_page_fetch() -> None:
     assert asyncio.run(crawler.crawl(counters)) == []
     assert requested == ["https://example.com/robots.txt"]
     assert counters.robots_denied == 1
+
+
+def test_complete_partial_robots_is_parsed_and_enforced() -> None:
+    requested: list[str] = []
+
+    async def partial_robots(url: str) -> Response:
+        requested.append(url)
+        body = b"User-agent: *\nDisallow: /news\n"
+        return partial_response(body, url, content_type="text/plain")
+
+    crawler = DomainCrawler(
+        DomainConfig("Example Motors", "example.com", ("https://example.com/news",)),
+        fetcher=partial_robots,
+        request_delay_seconds=0,
+        retries=0,
+        resolver=public_resolver,
+    )
+    counters = RunCounters(domains_configured=1)
+    assert asyncio.run(crawler.crawl(counters)) == []
+    assert requested == ["https://example.com/robots.txt"]
+    assert counters.robots_denied == 1
+
+
+def test_truncated_partial_robots_fails_closed() -> None:
+    requested: list[str] = []
+
+    async def truncated_robots(url: str) -> Response:
+        requested.append(url)
+        body = b"User-agent: *\nAllow: /\n"
+        return Response(
+            206,
+            {
+                "content-type": "text/plain",
+                "content-range": f"bytes 0-{len(body) - 1}/{len(body) + 20}",
+            },
+            body,
+            url,
+        )
+
+    items, counters = crawl(truncated_robots)
+    assert items == []
+    assert requested == ["https://example.com/robots.txt"]
+    assert counters.robots_denied == 1
+
+
+def test_403_and_429_remain_safe_failures() -> None:
+    for status in (403, 429):
+        async def rejected(url: str, response_status: int = status) -> Response:
+            if url.endswith("robots.txt"):
+                return Response(
+                    200,
+                    {"content-type": "text/plain"},
+                    b"User-agent: *\nAllow: /",
+                    url,
+                )
+            return Response(response_status, {"content-type": "text/html"}, b"rejected", url)
+
+        items, counters = crawl(rejected)
+        assert items == []
+        assert counters.failed == 1
