@@ -1,0 +1,11 @@
+{
+  "domains": [
+    { "name": "Lithia & Driveway", "domain": "lithia.com", "seeds": ["https://www.lithia.com/"] },
+    { "name": "AutoNation", "domain": "autonation.com", "seeds": ["https://www.autonation.com/"] },
+    { "name": "Group 1 Automotive", "domain": "group1auto.com", "seeds": ["https://www.group1auto.com/"] },
+    { "name": "Penske Automotive Group", "domain": "penskeautomotive.com", "seeds": ["https://www.penskeautomotive.com/"] },
+    { "name": "Asbury Automotive Group", "domain": "asburyauto.com", "seeds": ["https://www.asburyauto.com/"] },
+    { "name": "Kendall Auto Group", "domain": "kendallauto.com", "seeds": ["https://www.kendallauto.com/"] },
+    { "name": "Findlay Automotive Group", "domain": "findlayauto.com", "seeds": ["https://www.findlayauto.com/"] }
+  ]
+}
