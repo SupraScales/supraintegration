@@ -1,14 +1,14 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { discoveryEnabled, discoveryFailureTransition, staleProcessingCutoff } from "@/lib/lead-intelligence/discovery-policy";
-import { completedSecIndexDates, fetchSecDailyIndex, prefilterSecMnaSubmission, type SecDiscoveryEntry } from "@/lib/lead-intelligence/sec-discovery";
+import { discoveryEnabled, discoveryFailureTransition, hunt4DiscoveryEnabled, staleProcessingCutoff } from "@/lib/lead-intelligence/discovery-policy";
+import { prefilterSecMnaSubmission, type SecDiscoveryEntry } from "@/lib/lead-intelligence/sec-discovery";
+import { reconcileSecDailyIndexes, SEC_DISCOVERY_RECONCILIATION_DAYS, type SecDiscoverySnapshot } from "@/lib/lead-intelligence/sec-discovery-reconciliation";
 import { isSecTransportError } from "@/lib/lead-intelligence/sec-fetch";
-import { createSecFetcher } from "@/lib/lead-intelligence/sec-fetch-core";
 import { ensureSecMnaHunt, executeSecMnaHunter } from "@/lib/lead-intelligence/sec-mna-poc";
+import { runSkyshareHunt4Discovery } from "@/lib/lead-intelligence/sec-ipo-discovery-runner";
 import { createSystemClient } from "@/lib/supabase/system";
 
-const RECONCILIATION_DAYS = 7;
 const BATCH_LIMIT = 25;
 const MAX_ITEM_ATTEMPTS = 4;
 
@@ -106,8 +106,9 @@ async function updateDiscoveryItem(
   if (error) throw new Error("SEC discovery item state could not be stored.");
 }
 
-export async function runSkyshareDiscovery(
+export async function runSkyshareHunt2Discovery(
   suppliedClient?: SupabaseClient,
+  suppliedSnapshot?: SecDiscoverySnapshot,
 ): Promise<DiscoveryRunResult> {
   if (!discoveryEnabled()) return { status: "disabled" };
 
@@ -142,7 +143,7 @@ export async function runSkyshareDiscovery(
     status: "running",
     trigger_kind: "system",
     started_at: now.toISOString(),
-    summary: { source: "sec_daily_index", reconciliation_days: RECONCILIATION_DAYS },
+    summary: { source: "sec_daily_index", reconciliation_days: SEC_DISCOVERY_RECONCILIATION_DAYS },
   }).select("id").single();
   if (runError?.code === "23505") return { status: "already_running" };
   if (runError || !run) throw new Error("SEC discovery system run could not be created.");
@@ -166,21 +167,19 @@ export async function runSkyshareDiscovery(
     transport_failures: 0,
   };
   const startedAt = Date.now();
-  const secFetcher = createSecFetcher({
-    onAttempt: () => { counters.sec_request_count += 1; },
-    onRetry: () => { counters.sec_retries += 1; },
-  });
 
   try {
+    const snapshot = suppliedSnapshot ?? await reconcileSecDailyIndexes(now);
+    const initialRequests = snapshot.telemetry.requests;
+    const initialRetries = snapshot.telemetry.retries;
+    const secFetcher = snapshot.fetcher;
     const discovered = new Map<string, SecDiscoveryEntry>();
-    for (const date of completedSecIndexDates(now, RECONCILIATION_DAYS)) {
-      const result = await fetchSecDailyIndex(date, secFetcher);
-      if (result.missing) continue;
-      counters.indexes_fetched += 1;
-      counters.entries_seen += result.parsed.entriesSeen;
-      counters.eligible_forms += result.parsed.entries.length;
-      for (const entry of result.parsed.entries) discovered.set(entry.sourceKey, entry);
+    counters.indexes_fetched = snapshot.indexesFetched;
+    counters.entries_seen = snapshot.entriesSeen;
+    for (const entry of snapshot.entries) {
+      if (entry.formType === "8-K" || entry.formType === "8-K/A") discovered.set(entry.sourceKey, entry);
     }
+    counters.eligible_forms = discovered.size;
     counters.discovered = discovered.size;
     counters.items_inserted = await insertDiscoveredEntries(supabase, organizationId, hunt.id, [...discovered.values()]);
     counters.existing_items_skipped = counters.discovered - counters.items_inserted;
@@ -293,7 +292,9 @@ export async function runSkyshareDiscovery(
       }
     }
 
-    const summary = { ...counters, discovery_window_days: RECONCILIATION_DAYS, elapsed_ms: Date.now() - startedAt };
+    counters.sec_request_count = snapshot.reconciliationRequests + snapshot.telemetry.requests - initialRequests;
+    counters.sec_retries = snapshot.reconciliationRetries + snapshot.telemetry.retries - initialRetries;
+    const summary = { ...counters, discovery_window_days: SEC_DISCOVERY_RECONCILIATION_DAYS, elapsed_ms: Date.now() - startedAt };
     await completeSystemRun(supabase, organizationId, run.id, summary);
     return { status: "completed", runId: run.id, ...counters };
   } catch (error) {
@@ -306,4 +307,40 @@ export async function runSkyshareDiscovery(
     }).eq("id", run.id).eq("organization_id", organizationId);
     throw error;
   }
+}
+
+export async function runSkyshareDiscovery(suppliedClient?: SupabaseClient) {
+  const hunt2Enabled = discoveryEnabled();
+  const hunt4Enabled = hunt4DiscoveryEnabled();
+  if (!hunt2Enabled && !hunt4Enabled) return { status: "disabled" as const };
+
+  const supabase = suppliedClient ?? createSystemClient();
+  const snapshot = await reconcileSecDailyIndexes();
+  let hunt2: DiscoveryRunResult | { status: "failed"; error: string } = { status: "disabled" };
+  if (hunt2Enabled) {
+    try {
+      hunt2 = await runSkyshareHunt2Discovery(supabase, snapshot);
+    } catch {
+      hunt2 = { status: "failed", error: "hunt2_discovery_failed" };
+    }
+  }
+  let hunt4: Awaited<ReturnType<typeof runSkyshareHunt4Discovery>> | { status: "failed"; error: string } = { status: "disabled" };
+  if (hunt4Enabled) {
+    try {
+      hunt4 = await runSkyshareHunt4Discovery(supabase, snapshot);
+    } catch {
+      hunt4 = { status: "failed", error: "hunt4_discovery_failed" };
+    }
+  }
+
+  return {
+    status: "completed" as const,
+    shared_indexes_fetched: snapshot.indexesFetched,
+    shared_entries_seen: snapshot.entriesSeen,
+    hunts: { hunt2, hunt4 },
+    model_calls: 0,
+    estimated_tokens: 0,
+    paid_vendor_usage: 0,
+    external_cost: 0,
+  };
 }

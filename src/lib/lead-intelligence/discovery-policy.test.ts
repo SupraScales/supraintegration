@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 // @ts-expect-error Bare Node's TypeScript runner requires the source extension.
-import { authorizeDiscoveryRequest, discoveryEnabled, discoveryFailureTransition, evaluateDiscoveryRequest, retryDelayMilliseconds, staleProcessingCutoff } from "./discovery-policy.ts";
+import { authorizeDiscoveryRequest, discoveryEnabled, discoveryFailureTransition, evaluateDiscoveryRequest, hunt4DiscoveryEnabled, retryDelayMilliseconds, staleProcessingCutoff } from "./discovery-policy.ts";
 
 test("cron authentication fails closed before execution can be authorized", () => {
   assert.deepEqual(authorizeDiscoveryRequest({ authorization: null, cronSecret: "secret", hasQuery: false }), {
@@ -21,6 +21,28 @@ test("kill switch defaults disabled and only explicit true enables discovery", (
   assert.equal(discoveryEnabled(undefined), false);
   assert.equal(discoveryEnabled("false"), false);
   assert.equal(discoveryEnabled("TRUE"), true);
+  assert.equal(hunt4DiscoveryEnabled(undefined), false);
+  assert.equal(hunt4DiscoveryEnabled("false"), false);
+  assert.equal(hunt4DiscoveryEnabled("TRUE"), true);
+});
+
+test("Hunt flags are independent and Hunt #4 disabled causes zero Hunt #4 execution writes", async () => {
+  let executions = 0;
+  const execute = async () => { executions += 1; return { status: "completed" }; };
+  const hunt2Only = await evaluateDiscoveryRequest({
+    authorization: "Bearer secret", cronSecret: "secret", enabled: "true", enabledHunt4: "false",
+    hasQuery: false, execute,
+  });
+  assert.equal(hunt2Only.statusCode, 200);
+  assert.equal(executions, 1);
+
+  executions = 0;
+  const bothDisabled = await evaluateDiscoveryRequest({
+    authorization: "Bearer secret", cronSecret: "secret", enabled: "false", enabledHunt4: "false",
+    hasQuery: false, execute,
+  });
+  assert.deepEqual(bothDisabled.body, { status: "disabled" });
+  assert.equal(executions, 0);
 });
 
 test("unauthorized and disabled requests never invoke the write-capable executor", async () => {

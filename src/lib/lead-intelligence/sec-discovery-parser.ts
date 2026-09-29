@@ -1,9 +1,11 @@
+export type SecDiscoveryFormType = "8-K" | "8-K/A" | "424B4" | "CERT";
+
 export type SecDiscoveryEntry = {
   sourceKey: string;
   sourceType: "sec_daily_index";
   sourceUrl: string;
   filingIndexUrl: string;
-  formType: "8-K" | "8-K/A";
+  formType: SecDiscoveryFormType;
   accessionNumber: string;
   issuerCik: string;
   filingDate: string;
@@ -20,21 +22,27 @@ function isDate(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
 }
 
-function entryFromParts(parts: string[]): SecDiscoveryEntry | null {
+const SUPPORTED_FORMS = new Set<SecDiscoveryFormType>(["8-K", "8-K/A", "424B4", "CERT"]);
+const HUNT2_FORMS = new Set<SecDiscoveryFormType>(["8-K", "8-K/A"]);
+
+function entryFromParts(parts: string[], acceptedForms: ReadonlySet<SecDiscoveryFormType>): SecDiscoveryEntry | null {
   if (parts.length !== 5) return null;
   const [cik, companyName, formType, compactFilingDate, filingPath] = parts.map((part) => part.trim());
   const filingDate = compactFilingDate.replace(/^(\d{4})(\d{2})(\d{2})$/, "$1-$2-$3");
-  if (formType !== "8-K" && formType !== "8-K/A") return null;
+  if (!SUPPORTED_FORMS.has(formType as SecDiscoveryFormType) || !acceptedForms.has(formType as SecDiscoveryFormType)) return null;
   if (!/^\d{1,10}$/.test(cik) || !isDate(filingDate)) return null;
   const accessionNumber = filingPath.match(/([0-9]{10}-[0-9]{2}-[0-9]{6})\.txt$/)?.[1];
   if (!accessionNumber || !filingPath.startsWith("edgar/data/")) return null;
   const accessionDirectory = accessionNumber.replaceAll("-", "");
+  const sourcePrefix = formType === "8-K" || formType === "8-K/A"
+    ? "sec-8k"
+    : formType === "424B4" ? "sec-424b4" : "sec-cert";
   return {
-    sourceKey: `sec-8k:${accessionNumber}`,
+    sourceKey: `${sourcePrefix}:${accessionNumber}`,
     sourceType: "sec_daily_index",
     sourceUrl: `https://www.sec.gov/Archives/${filingPath}`,
     filingIndexUrl: `https://www.sec.gov/Archives/edgar/data/${cik}/${accessionDirectory}/${accessionNumber}-index.html`,
-    formType,
+    formType: formType as SecDiscoveryFormType,
     accessionNumber,
     issuerCik: cik,
     filingDate,
@@ -42,7 +50,10 @@ function entryFromParts(parts: string[]): SecDiscoveryEntry | null {
   };
 }
 
-export function parseSecDailyMasterIndex(indexText: string): ParsedSecDailyIndex {
+export function parseSecDailyMasterIndex(
+  indexText: string,
+  acceptedForms: ReadonlySet<SecDiscoveryFormType> = HUNT2_FORMS,
+): ParsedSecDailyIndex {
   const lines = indexText.split(/\r?\n/);
   const separator = lines.findIndex((line) => /^-+$/.test(line.trim()));
   const entries: SecDiscoveryEntry[] = [];
@@ -54,13 +65,17 @@ export function parseSecDailyMasterIndex(indexText: string): ParsedSecDailyIndex
     entriesSeen += 1;
     const parts = line.split("|");
     const formType = parts[2]?.trim();
-    if (formType !== "8-K" && formType !== "8-K/A") continue;
-    const entry = entryFromParts(parts);
+    if (!SUPPORTED_FORMS.has(formType as SecDiscoveryFormType) || !acceptedForms.has(formType as SecDiscoveryFormType)) continue;
+    const entry = entryFromParts(parts, acceptedForms);
     if (entry) entries.push(entry);
     else malformedEntries += 1;
   }
   const unique = new Map(entries.map((entry) => [entry.sourceKey, entry]));
   return { entriesSeen, malformedEntries, entries: [...unique.values()] };
+}
+
+export function parseSharedSecDailyMasterIndex(indexText: string) {
+  return parseSecDailyMasterIndex(indexText, SUPPORTED_FORMS);
 }
 
 export function secDailyIndexUrl(date: string) {

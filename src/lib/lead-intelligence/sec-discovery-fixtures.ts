@@ -26,3 +26,17 @@ ITEM INFORMATION: 5.02
 </SEC-HEADER>
 <DOCUMENT><TYPE>8-K</TYPE><TEXT><p>Item 5.02 Departure of Directors.</p></TEXT></DOCUMENT>
 </SEC-DOCUMENT>`;
+
+export const SEC_IPO_DAILY_INDEX_FIXTURE = `Description: Master Index of EDGAR Dissemination Feed
+Last Data Received: July 31, 2025
+Comments: webmaster@sec.gov
+
+CIK|Company Name|Form Type|Date Filed|File Name
+--------------------------------------------------------------------------------
+1579878|Figma, Inc.|424B4|20250731|edgar/data/1579878/0001628280-25-037014.txt
+1579878|Figma, Inc.|CERT|20250729|edgar/data/1579878/0000876661-25-000534.txt
+1579878|Figma, Inc.|424B4|20250731|edgar/data/1579878/0001628280-25-037014.txt
+1999999|Different Issuer, Inc.|CERT|20250730|edgar/data/1999999/0001999999-25-000001.txt
+1579878|Figma, Inc.|S-1|20250615|edgar/data/1579878/0001628280-25-030000.txt
+1766363|ENDEAVOR GROUP HOLDINGS INC|8-K|20250324|edgar/data/1766363/0001193125-25-060947.txt
+`;

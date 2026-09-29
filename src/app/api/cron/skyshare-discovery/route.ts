@@ -13,6 +13,7 @@ export async function GET(request: Request) {
       authorization: request.headers.get("authorization"),
       cronSecret: process.env.CRON_SECRET,
       enabled: process.env.SKYSHARE_DISCOVERY_HUNT2_ENABLED,
+      enabledHunt4: process.env.SKYSHARE_DISCOVERY_HUNT4_ENABLED,
       hasQuery: url.search.length > 0,
       execute: runSkyshareDiscovery,
     });
