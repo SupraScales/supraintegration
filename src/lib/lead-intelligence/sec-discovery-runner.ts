@@ -1,10 +1,18 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { discoveryEnabled, discoveryFailureTransition, hunt4DiscoveryEnabled, staleProcessingCutoff } from "@/lib/lead-intelligence/discovery-policy";
+import {
+  discoveryEnabled,
+  discoveryFailureTransition,
+  hunt1DiscoveryEnabled,
+  hunt4DiscoveryEnabled,
+  staleProcessingCutoff,
+} from "@/lib/lead-intelligence/discovery-policy";
 import { prefilterSecMnaSubmission, type SecDiscoveryEntry } from "@/lib/lead-intelligence/sec-discovery";
+import { orchestrateSharedSecDiscovery } from "@/lib/lead-intelligence/sec-discovery-orchestrator";
 import { reconcileSecDailyIndexes, SEC_DISCOVERY_RECONCILIATION_DAYS, type SecDiscoverySnapshot } from "@/lib/lead-intelligence/sec-discovery-reconciliation";
 import { isSecTransportError } from "@/lib/lead-intelligence/sec-fetch";
+import { runSkyshareHunt1Discovery } from "@/lib/lead-intelligence/sec-form4-discovery-runner";
 import { ensureSecMnaHunt, executeSecMnaHunter } from "@/lib/lead-intelligence/sec-mna-poc";
 import { runSkyshareHunt4Discovery } from "@/lib/lead-intelligence/sec-ipo-discovery-runner";
 import { createSystemClient } from "@/lib/supabase/system";
@@ -292,8 +300,10 @@ export async function runSkyshareHunt2Discovery(
       }
     }
 
-    counters.sec_request_count = snapshot.reconciliationRequests + snapshot.telemetry.requests - initialRequests;
-    counters.sec_retries = snapshot.reconciliationRetries + snapshot.telemetry.retries - initialRetries;
+    counters.sec_request_count = (suppliedSnapshot ? 0 : snapshot.reconciliationRequests)
+      + snapshot.telemetry.requests - initialRequests;
+    counters.sec_retries = (suppliedSnapshot ? 0 : snapshot.reconciliationRetries)
+      + snapshot.telemetry.retries - initialRetries;
     const summary = { ...counters, discovery_window_days: SEC_DISCOVERY_RECONCILIATION_DAYS, elapsed_ms: Date.now() - startedAt };
     await completeSystemRun(supabase, organizationId, run.id, summary);
     return { status: "completed", runId: run.id, ...counters };
@@ -310,34 +320,27 @@ export async function runSkyshareHunt2Discovery(
 }
 
 export async function runSkyshareDiscovery(suppliedClient?: SupabaseClient) {
+  const hunt1Enabled = hunt1DiscoveryEnabled();
   const hunt2Enabled = discoveryEnabled();
   const hunt4Enabled = hunt4DiscoveryEnabled();
-  if (!hunt2Enabled && !hunt4Enabled) return { status: "disabled" as const };
-
+  if (!hunt1Enabled && !hunt2Enabled && !hunt4Enabled) return { status: "disabled" as const };
   const supabase = suppliedClient ?? createSystemClient();
-  const snapshot = await reconcileSecDailyIndexes();
-  let hunt2: DiscoveryRunResult | { status: "failed"; error: string } = { status: "disabled" };
-  if (hunt2Enabled) {
-    try {
-      hunt2 = await runSkyshareHunt2Discovery(supabase, snapshot);
-    } catch {
-      hunt2 = { status: "failed", error: "hunt2_discovery_failed" };
-    }
-  }
-  let hunt4: Awaited<ReturnType<typeof runSkyshareHunt4Discovery>> | { status: "failed"; error: string } = { status: "disabled" };
-  if (hunt4Enabled) {
-    try {
-      hunt4 = await runSkyshareHunt4Discovery(supabase, snapshot);
-    } catch {
-      hunt4 = { status: "failed", error: "hunt4_discovery_failed" };
-    }
-  }
+  const result = await orchestrateSharedSecDiscovery({
+    enabled: { hunt1: hunt1Enabled, hunt2: hunt2Enabled, hunt4: hunt4Enabled },
+    reconcile: reconcileSecDailyIndexes,
+    runHunt1: (snapshot) => runSkyshareHunt1Discovery(supabase, snapshot),
+    runHunt2: (snapshot) => runSkyshareHunt2Discovery(supabase, snapshot),
+    runHunt4: (snapshot) => runSkyshareHunt4Discovery(supabase, snapshot),
+  });
+  if (result.status === "disabled") return result;
 
   return {
     status: "completed" as const,
-    shared_indexes_fetched: snapshot.indexesFetched,
-    shared_entries_seen: snapshot.entriesSeen,
-    hunts: { hunt2, hunt4 },
+    shared_indexes_fetched: result.snapshot.indexesFetched,
+    shared_entries_seen: result.snapshot.entriesSeen,
+    shared_sec_request_count: result.snapshot.reconciliationRequests,
+    shared_sec_retries: result.snapshot.reconciliationRetries,
+    hunts: result.hunts,
     model_calls: 0,
     estimated_tokens: 0,
     paid_vendor_usage: 0,

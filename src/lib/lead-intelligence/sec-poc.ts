@@ -1,12 +1,19 @@
 import "server-only";
 
-import { requireInternalAdmin } from "@/lib/auth";
-import { requireHermesClient } from "@/lib/hermes";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchSecText, isSecTransportError } from "@/lib/lead-intelligence/sec-fetch";
 import { buildSecCandidateDraft, fetchAndParseSecForm4 } from "@/lib/lead-intelligence/sec";
 
-const HUNT_KEY = "sec-insider-sale-5m";
+export const SEC_FORM4_HUNT_KEY = "sec-insider-sale-5m";
 const HUNT_LABEL = "$5M+ Public-Company Insider Stock Sales";
 const MINIMUM_SALE_CENTS = BigInt("500000000");
+const HUNT_CONFIGURATION = {
+  source: "sec_form_4",
+  minimum_sale_usd: 5_000_000,
+  transaction_code: "S",
+  western11_required: true,
+  model_policy: "deterministic_first",
+};
 
 type GateReason =
   | "raw_signal_seen"
@@ -24,6 +31,19 @@ export type SecHunterPocResult =
   | { outcome: "candidate_created" | "duplicate"; candidateId: string; recommendation: "whale" | "good" | "bad"; amount: number }
   | { outcome: "rejected"; reason: string; amount: number };
 
+type SecForm4ExecutionInput = {
+  supabase: SupabaseClient;
+  organizationId: string;
+  huntId: string;
+  runId: string;
+  actorUserId: string | null;
+  filingUrl: string;
+  adapter: "form4_xml_manual" | "form4_submission_system";
+  finalizeRun: boolean;
+  retryTransportFailures: boolean;
+  secFetcher?: typeof fetchSecText;
+};
+
 function parseFailureReason(error: unknown): { code: "missing_beneficiary" | "weak_qualification"; message: string } {
   const message = error instanceof Error ? error.message : "SEC filing could not be qualified.";
   if (/missing issuer or reporting-owner identity/i.test(message)) {
@@ -32,38 +52,78 @@ function parseFailureReason(error: unknown): { code: "missing_beneficiary" | "we
   return { code: "weak_qualification", message };
 }
 
-export async function runSecHunterPoc(clientId: string, filingUrl: string): Promise<SecHunterPocResult> {
-  const access = await requireInternalAdmin();
-  const { supabase } = await requireHermesClient(clientId);
+export async function ensureSecForm4Hunt(
+  supabase: SupabaseClient,
+  organizationId: string,
+  actorUserId: string | null,
+) {
+  const { data: existing, error: lookupError } = await supabase.from("lead_hunts")
+    .select("id, enabled")
+    .eq("organization_id", organizationId)
+    .eq("hunt_key", SEC_FORM4_HUNT_KEY)
+    .maybeSingle();
+  if (lookupError) throw new Error("SEC Form 4 hunt lookup failed.");
+  if (existing) return existing as { id: string; enabled: boolean };
 
-  const { data: hunt, error: huntError } = await supabase.from("lead_hunts").upsert({
-    organization_id: clientId,
-    hunt_key: HUNT_KEY,
+  const { data: created, error: createError } = await supabase.from("lead_hunts").insert({
+    organization_id: organizationId,
+    hunt_key: SEC_FORM4_HUNT_KEY,
     label: HUNT_LABEL,
     priority: "p0",
     enabled: true,
-    configuration: {
-      source: "sec_form_4",
-      minimum_sale_usd: 5_000_000,
-      transaction_code: "S",
-      western11_required: true,
-      model_policy: "deterministic_first",
-    },
-    updated_by: access.user.id,
-  }, { onConflict: "organization_id,hunt_key" }).select("id").single();
-  if (huntError || !hunt) throw new Error("SEC hunt could not be initialized.");
-  const huntId = hunt.id;
+    configuration: HUNT_CONFIGURATION,
+    created_by: actorUserId,
+    updated_by: actorUserId,
+  }).select("id, enabled").single();
+  if (createError || !created) throw new Error("SEC Form 4 hunt could not be initialized.");
+  return created as { id: string; enabled: boolean };
+}
+
+export async function runSecHunterPoc(clientId: string, filingUrl: string): Promise<SecHunterPocResult> {
+  const [{ requireInternalAdmin }, { requireHermesClient }] = await Promise.all([
+    import("@/lib/auth"),
+    import("@/lib/hermes"),
+  ]);
+  const access = await requireInternalAdmin();
+  const { supabase } = await requireHermesClient(clientId);
+  const hunt = await ensureSecForm4Hunt(supabase, clientId, access.user.id);
 
   const { data: run, error: runError } = await supabase.from("lead_hunt_runs").insert({
     organization_id: clientId,
-    hunt_id: huntId,
+    hunt_id: hunt.id,
     status: "running",
     trigger_kind: "manual",
     started_at: new Date().toISOString(),
     created_by: access.user.id,
   }).select("id").single();
   if (runError || !run) throw new Error("SEC hunt run could not be created.");
-  const runId = run.id;
+
+  return executeSecForm4Hunter({
+    supabase,
+    organizationId: clientId,
+    huntId: hunt.id,
+    runId: run.id,
+    actorUserId: access.user.id,
+    filingUrl,
+    adapter: "form4_xml_manual",
+    finalizeRun: true,
+    retryTransportFailures: false,
+  });
+}
+
+export async function executeSecForm4Hunter(input: SecForm4ExecutionInput): Promise<SecHunterPocResult> {
+  const {
+    supabase,
+    organizationId,
+    huntId,
+    runId,
+    actorUserId,
+    filingUrl,
+    adapter,
+    finalizeRun,
+    retryTransportFailures,
+    secFetcher,
+  } = input;
 
   async function recordGate(input: {
     kind: GateKind;
@@ -73,7 +133,7 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
     evidence?: Record<string, unknown>;
   }) {
     const { error } = await supabase.from("lead_gate_events").insert({
-      organization_id: clientId,
+      organization_id: organizationId,
       hunt_id: huntId,
       hunt_run_id: runId,
       signal_id: input.signalId ?? null,
@@ -89,6 +149,22 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
     if (error) throw new Error(`Gate ledger could not record ${input.reason}.`);
   }
 
+  async function completeRun(summary: Record<string, unknown>) {
+    if (!finalizeRun) return;
+    const { error } = await supabase.from("lead_hunt_runs").update({
+      status: "completed",
+      completed_at: new Date().toISOString(),
+      summary: {
+        ...summary,
+        model_calls: 0,
+        estimated_tokens: 0,
+        paid_vendor_usage: 0,
+        external_cost: 0,
+      },
+    }).eq("id", runId).eq("organization_id", organizationId);
+    if (error) throw new Error("SEC Form 4 run summary could not be stored.");
+  }
+
   await recordGate({
     kind: "signal_seen",
     reason: "raw_signal_seen",
@@ -98,27 +174,21 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
   try {
     let parsed;
     try {
-      parsed = await fetchAndParseSecForm4(filingUrl);
+      parsed = await fetchAndParseSecForm4(filingUrl, secFetcher);
     } catch (error) {
+      if (retryTransportFailures && isSecTransportError(error)) throw error;
       const rejection = parseFailureReason(error);
       await recordGate({
         kind: "rejection",
         reason: rejection.code,
         evidence: { filing_url: filingUrl, parser_error: rejection.message },
       });
-      await supabase.from("lead_hunt_runs").update({
-        status: "completed",
-        completed_at: new Date().toISOString(),
-        summary: {
-          raw_signals: 1,
-          rejected: 1,
-          qualified: 0,
-          rejection_reason: rejection.code,
-          model_calls: 0,
-          estimated_tokens: 0,
-          external_cost: 0,
-        },
-      }).eq("id", runId).eq("organization_id", clientId);
+      await completeRun({
+        raw_signals: 1,
+        rejected: 1,
+        qualified: 0,
+        rejection_reason: rejection.code,
+      });
       return { outcome: "rejected", reason: rejection.message, amount: 0 };
     }
 
@@ -139,30 +209,42 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
       deterministic_checks: draft.deterministicChecks,
     };
 
-    const { data: signal, error: signalError } = await supabase.from("lead_signals").insert({
-      organization_id: clientId,
-      hunt_id: huntId,
-      hunt_run_id: runId,
-      source_type: "sec_form_4",
-      source_record_id: parsed.dedupeKey,
-      source_url: parsed.filingUrl,
-      event_type: "insider_stock_sale",
-      title: `${parsed.reportingOwnerName} — ${draft.triggerSummary}`,
-      occurred_at: `${parsed.eventDate}T00:00:00Z`,
-      geography: draft.geography,
-      normalized_payload: normalizedPayload,
-      raw_payload: {
-        filing_url: parsed.filingUrl,
-        transactions: parsed.transactions.map((transaction) => ({
-          date: transaction.date,
-          security_title: transaction.securityTitle,
-          shares: transaction.shares,
-          price_per_share: transaction.pricePerShare,
-          value_cents: transaction.valueCents.toString(),
-        })),
-      },
-    }).select("id").single();
-    if (signalError || !signal) throw new Error("SEC signal could not be stored.");
+    const { data: existingSignal, error: signalLookupError } = await supabase.from("lead_signals")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .eq("hunt_id", huntId)
+      .eq("source_record_id", parsed.dedupeKey)
+      .maybeSingle();
+    if (signalLookupError) throw new Error("SEC signal lookup failed.");
+
+    let signal = existingSignal as { id: string } | null;
+    if (!signal) {
+      const { data: insertedSignal, error: signalError } = await supabase.from("lead_signals").insert({
+        organization_id: organizationId,
+        hunt_id: huntId,
+        hunt_run_id: runId,
+        source_type: "sec_form_4",
+        source_record_id: parsed.dedupeKey,
+        source_url: parsed.filingUrl,
+        event_type: "insider_stock_sale",
+        title: `${parsed.reportingOwnerName} — ${draft.triggerSummary}`,
+        occurred_at: `${parsed.eventDate}T00:00:00Z`,
+        geography: draft.geography,
+        normalized_payload: normalizedPayload,
+        raw_payload: {
+          filing_url: parsed.filingUrl,
+          transactions: parsed.transactions.map((transaction) => ({
+            date: transaction.date,
+            security_title: transaction.securityTitle,
+            shares: transaction.shares,
+            price_per_share: transaction.pricePerShare,
+            value_cents: transaction.valueCents.toString(),
+          })),
+        },
+      }).select("id").single();
+      if (signalError || !insertedSignal) throw new Error("SEC signal could not be stored.");
+      signal = insertedSignal;
+    }
 
     const thresholdPassed = parsed.totalSaleCents >= MINIMUM_SALE_CENTS;
     if (!thresholdPassed) {
@@ -178,11 +260,7 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
           issuer: parsed.issuerName,
         },
       });
-      await supabase.from("lead_hunt_runs").update({
-        status: "completed",
-        completed_at: new Date().toISOString(),
-        summary: { raw_signals: 1, rejected: 1, qualified: 0, rejection_reason: "below_threshold", model_calls: 0, estimated_tokens: 0, external_cost: 0 },
-      }).eq("id", runId).eq("organization_id", clientId);
+      await completeRun({ raw_signals: 1, rejected: 1, qualified: 0, rejection_reason: "below_threshold" });
       return { outcome: "rejected", reason, amount: draft.eventAmount };
     }
 
@@ -200,18 +278,14 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
           issuer: parsed.issuerName,
         },
       });
-      await supabase.from("lead_hunt_runs").update({
-        status: "completed",
-        completed_at: new Date().toISOString(),
-        summary: { raw_signals: 1, rejected: 1, qualified: 0, rejection_reason: "geography", model_calls: 0, estimated_tokens: 0, external_cost: 0 },
-      }).eq("id", runId).eq("organization_id", clientId);
+      await completeRun({ raw_signals: 1, rejected: 1, qualified: 0, rejection_reason: "geography" });
       return { outcome: "rejected", reason, amount: draft.eventAmount };
     }
 
     const { data: existing } = await supabase
       .from("lead_candidate_private_details")
       .select("candidate_id")
-      .eq("organization_id", clientId)
+      .eq("organization_id", organizationId)
       .eq("dedupe_key", draft.dedupeKey)
       .maybeSingle();
 
@@ -223,11 +297,7 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
         candidateId: existing.candidate_id,
         evidence: { dedupe_key: draft.dedupeKey, existing_candidate_id: existing.candidate_id },
       });
-      await supabase.from("lead_hunt_runs").update({
-        status: "completed",
-        completed_at: new Date().toISOString(),
-        summary: { raw_signals: 1, rejected: 1, qualified: 0, rejection_reason: "duplicate", model_calls: 0, estimated_tokens: 0, external_cost: 0 },
-      }).eq("id", runId).eq("organization_id", clientId);
+      await completeRun({ raw_signals: 1, rejected: 1, qualified: 0, rejection_reason: "duplicate" });
       return {
         outcome: "duplicate",
         candidateId: existing.candidate_id,
@@ -243,9 +313,9 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
     const supraLeadId = `SEC-${parsed.ticker ?? "PUBLIC"}-${parsed.eventDate.replaceAll("-", "")}-${ownerToken}`;
 
     const { data: candidate, error: candidateError } = await supabase.from("lead_candidates").insert({
-      organization_id: clientId,
+      organization_id: organizationId,
       supra_lead_id: supraLeadId,
-      source_hunt_key: HUNT_KEY,
+      source_hunt_key: SEC_FORM4_HUNT_KEY,
       source_hunt_label: HUNT_LABEL,
       person_name: draft.personName,
       company_name: draft.companyName,
@@ -268,30 +338,30 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
       likely_product_fit: draft.likelyProductFit,
       status: "qualified",
       publication_state: "unpublished",
-      created_by: access.user.id,
-      updated_by: access.user.id,
+      created_by: actorUserId,
+      updated_by: actorUserId,
     }).select("id").single();
     if (candidateError || !candidate) throw new Error("SEC candidate could not be stored.");
 
     const { error: privateError } = await supabase.from("lead_candidate_private_details").insert({
       candidate_id: candidate.id,
-      organization_id: clientId,
+      organization_id: organizationId,
       hunt_id: huntId,
       signal_id: signal.id,
       dedupe_key: draft.dedupeKey,
       enrichment_needed: true,
       internal_reasoning: "Deterministic SEC POC qualification. No model call used for parsing, math, thresholding, geography, dedupe, or recommendation.",
-      source_orchestration: { source: "sec.gov", adapter: "form4_xml_manual_poc", filing_url: parsed.filingUrl },
+      source_orchestration: { source: "sec.gov", adapter, filing_url: parsed.filingUrl },
       model_internals: { model_calls: 0, estimated_input_tokens: 0, estimated_output_tokens: 0 },
       qualification_config: { minimum_sale_usd: 5_000_000, western11_required: true, transaction_code: "S" },
       private_research: { deterministic_checks: draft.deterministicChecks },
       vendor_payloads: {},
-      updated_by: access.user.id,
+      updated_by: actorUserId,
     });
     if (privateError) throw new Error("SEC candidate private details could not be stored.");
 
     const { error: evidenceError } = await supabase.from("lead_evidence").insert({
-      organization_id: clientId,
+      organization_id: organizationId,
       candidate_id: candidate.id,
       label: "SEC Form 4 — reported insider sale",
       source_url: parsed.filingUrl,
@@ -299,7 +369,7 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
       summary: `${draft.triggerSummary}. ${parsed.totalShares.toLocaleString("en-US")} shares across ${parsed.transactions.length} transaction lines; reporting-owner filing address establishes ${parsed.reportingOwnerState ?? "unknown"} relevance.`,
       captured_at: new Date().toISOString(),
       client_visible: true,
-      created_by: access.user.id,
+      created_by: actorUserId,
     });
     if (evidenceError) throw new Error("SEC evidence could not be stored.");
 
@@ -324,20 +394,13 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
       },
     });
 
-    await supabase.from("lead_hunt_runs").update({
-      status: "completed",
-      completed_at: new Date().toISOString(),
-      summary: {
-        raw_signals: 1,
-        rejected: 0,
-        qualified: 1,
-        enrichment_needed: 1,
-        recommendation: draft.systemRecommendation,
-        model_calls: 0,
-        estimated_tokens: 0,
-        external_cost: 0,
-      },
-    }).eq("id", runId).eq("organization_id", clientId);
+    await completeRun({
+      raw_signals: 1,
+      rejected: 0,
+      qualified: 1,
+      enrichment_needed: 1,
+      recommendation: draft.systemRecommendation,
+    });
 
     return {
       outcome: "candidate_created",
@@ -346,11 +409,13 @@ export async function runSecHunterPoc(clientId: string, filingUrl: string): Prom
       amount: draft.eventAmount,
     };
   } catch (error) {
-    await supabase.from("lead_hunt_runs").update({
-      status: "failed",
-      completed_at: new Date().toISOString(),
-      error: error instanceof Error ? error.message : "Unknown SEC hunter error",
-    }).eq("id", runId).eq("organization_id", clientId);
+    if (finalizeRun) {
+      await supabase.from("lead_hunt_runs").update({
+        status: "failed",
+        completed_at: new Date().toISOString(),
+        error: error instanceof Error ? error.message : "Unknown SEC hunter error",
+      }).eq("id", runId).eq("organization_id", organizationId);
+    }
     throw error;
   }
 }
