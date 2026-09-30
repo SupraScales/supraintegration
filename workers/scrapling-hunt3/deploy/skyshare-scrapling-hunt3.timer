@@ -1,0 +1,12 @@
+[Unit]
+Description=Run SkyShare Hunt 3 bounded discovery twice weekly
+
+[Timer]
+OnCalendar=Mon,Thu *-*-* 10:15:00 UTC
+RandomizedDelaySec=30min
+AccuracySec=5min
+Persistent=true
+Unit=skyshare-scrapling-hunt3.service
+
+[Install]
+WantedBy=timers.target

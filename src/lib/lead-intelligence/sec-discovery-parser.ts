@@ -1,4 +1,4 @@
-export type SecDiscoveryFormType = "8-K" | "8-K/A" | "424B4" | "CERT";
+export type SecDiscoveryFormType = "4" | "4/A" | "8-K" | "8-K/A" | "424B4" | "CERT";
 
 export type SecDiscoveryEntry = {
   sourceKey: string;
@@ -22,7 +22,7 @@ function isDate(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
 }
 
-const SUPPORTED_FORMS = new Set<SecDiscoveryFormType>(["8-K", "8-K/A", "424B4", "CERT"]);
+const SUPPORTED_FORMS = new Set<SecDiscoveryFormType>(["4", "4/A", "8-K", "8-K/A", "424B4", "CERT"]);
 const HUNT2_FORMS = new Set<SecDiscoveryFormType>(["8-K", "8-K/A"]);
 
 function entryFromParts(parts: string[], acceptedForms: ReadonlySet<SecDiscoveryFormType>): SecDiscoveryEntry | null {
@@ -34,9 +34,11 @@ function entryFromParts(parts: string[], acceptedForms: ReadonlySet<SecDiscovery
   const accessionNumber = filingPath.match(/([0-9]{10}-[0-9]{2}-[0-9]{6})\.txt$/)?.[1];
   if (!accessionNumber || !filingPath.startsWith("edgar/data/")) return null;
   const accessionDirectory = accessionNumber.replaceAll("-", "");
-  const sourcePrefix = formType === "8-K" || formType === "8-K/A"
-    ? "sec-8k"
-    : formType === "424B4" ? "sec-424b4" : "sec-cert";
+  const sourcePrefix = formType === "4" || formType === "4/A"
+    ? "sec-form4"
+    : formType === "8-K" || formType === "8-K/A"
+      ? "sec-8k"
+      : formType === "424B4" ? "sec-424b4" : "sec-cert";
   return {
     sourceKey: `${sourcePrefix}:${accessionNumber}`,
     sourceType: "sec_daily_index",

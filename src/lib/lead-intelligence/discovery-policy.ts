@@ -21,6 +21,10 @@ export function discoveryEnabled(value = process.env.SKYSHARE_DISCOVERY_HUNT2_EN
   return value?.trim().toLowerCase() === "true";
 }
 
+export function hunt1DiscoveryEnabled(value = process.env.SKYSHARE_DISCOVERY_HUNT1_ENABLED) {
+  return value?.trim().toLowerCase() === "true";
+}
+
 export function hunt4DiscoveryEnabled(value = process.env.SKYSHARE_DISCOVERY_HUNT4_ENABLED) {
   return value?.trim().toLowerCase() === "true";
 }
@@ -29,13 +33,18 @@ export async function evaluateDiscoveryRequest<T>(input: {
   authorization: string | null;
   cronSecret: string | undefined;
   enabled: string | undefined;
+  enabledHunt1?: string | undefined;
   enabledHunt4?: string | undefined;
   hasQuery: boolean;
   execute: () => Promise<T>;
 }) {
   const decision = authorizeDiscoveryRequest(input);
   if (!decision.allowed) return { statusCode: decision.status, body: decision.body };
-  if (!discoveryEnabled(input.enabled) && !hunt4DiscoveryEnabled(input.enabledHunt4)) {
+  if (
+    !hunt1DiscoveryEnabled(input.enabledHunt1)
+    && !discoveryEnabled(input.enabled)
+    && !hunt4DiscoveryEnabled(input.enabledHunt4)
+  ) {
     return { statusCode: 200 as const, body: { status: "disabled" } };
   }
   return { statusCode: 200 as const, body: await input.execute() };

@@ -263,8 +263,10 @@ export async function runSkyshareHunt4Discovery(
       }
     }
 
-    counters.sec_request_count = snapshot.reconciliationRequests + snapshot.telemetry.requests - initialRequests;
-    counters.sec_retries = snapshot.reconciliationRetries + snapshot.telemetry.retries - initialRetries;
+    counters.sec_request_count = (suppliedSnapshot ? 0 : snapshot.reconciliationRequests)
+      + snapshot.telemetry.requests - initialRequests;
+    counters.sec_retries = (suppliedSnapshot ? 0 : snapshot.reconciliationRetries)
+      + snapshot.telemetry.retries - initialRetries;
     const summary = {
       ...counters, discovery_window_days: SEC_DISCOVERY_RECONCILIATION_DAYS,
       elapsed_ms: Date.now() - startedAt, model_calls: 0, estimated_tokens: 0,

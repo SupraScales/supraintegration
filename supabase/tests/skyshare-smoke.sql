@@ -15,6 +15,17 @@ select pg_temp.check_ok((select count(*)=1 from organization_memberships where u
 set local role authenticated;
 select set_config('request.jwt.claims',jsonb_build_object('sub',current_setting('skyshare_smoke.internal_user_id'),'role','authenticated')::text,true);
 select pg_temp.check_ok(exists(select 1 from lead_hunts where id='1d38483b-e5da-41cd-a5c0-6ecf5081060e'), 'internal access to SEC hunt');
+set local role service_role;
+insert into lead_discovery_items(id,organization_id,hunt_id,source_key,source_type,source_url,form_type,accession_number,issuer_cik,filing_date,status,processed_at,metadata)
+values
+('ffffffff-0000-4000-8000-000000000006','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922','1d38483b-e5da-41cd-a5c0-6ecf5081060e','sec-form4:0000789019-26-000161','sec_daily_index','https://www.sec.gov/Archives/edgar/data/789019/0000789019-26-000161.txt','4','0000789019-26-000161','789019','2026-09-01','pending',null,'{"discovery_role":"candidate_source"}'),
+('ffffffff-0000-4000-8000-000000000007','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922','1d38483b-e5da-41cd-a5c0-6ecf5081060e','sec-form4:0000789019-26-000162','sec_daily_index','https://www.sec.gov/Archives/edgar/data/789019/0000789019-26-000162.txt','4/A','0000789019-26-000162','789019','2026-09-02','completed',now(),'{"discovery_role":"amendment_support","amendment_policy":"audit_support_no_candidate"}');
+insert into lead_discovery_items(organization_id,hunt_id,source_key,source_type,source_url,form_type,accession_number,issuer_cik,filing_date)
+values('85ded2c8-d4b0-4109-b3c0-ef8c15ab4922','1d38483b-e5da-41cd-a5c0-6ecf5081060e','sec-form4:0000789019-26-000161','sec_daily_index','https://www.sec.gov/Archives/edgar/data/789019/0000789019-26-000161.txt','4','0000789019-26-000161','789019','2026-09-01')
+on conflict(organization_id,hunt_id,source_key) do nothing;
+select pg_temp.check_ok((select count(*)=2 from lead_discovery_items where hunt_id='1d38483b-e5da-41cd-a5c0-6ecf5081060e' and source_key in ('sec-form4:0000789019-26-000161','sec-form4:0000789019-26-000162')), 'Hunt #1 discovery reuses inbox and dedupes stable accession keys');
+select pg_temp.check_ok(exists(select 1 from lead_discovery_items where id='ffffffff-0000-4000-8000-000000000007' and form_type='4/A' and status='completed' and metadata->>'amendment_policy'='audit_support_no_candidate'), 'Hunt #1 amendment remains completed audit support');
+set local role authenticated;
 insert into lead_hunt_runs(id,organization_id,hunt_id,status,trigger_kind) values('eeeeeeee-0000-4000-8000-000000000001','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922','1d38483b-e5da-41cd-a5c0-6ecf5081060e','running','manual');
 insert into lead_signals(id,organization_id,hunt_id,hunt_run_id,source_type,event_type,title) values('eeeeeeee-0000-4000-8000-000000000002','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922','1d38483b-e5da-41cd-a5c0-6ecf5081060e','eeeeeeee-0000-4000-8000-000000000001','sec_form_4','insider_stock_sale','Deterministic smoke fixture; no external source call');
 insert into lead_candidates(id,organization_id,supra_lead_id,source_hunt_key,source_hunt_label,person_name,trigger_summary,why_found,system_recommendation,status) values('eeeeeeee-0000-4000-8000-000000000003','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922','SMOKE-ROLLBACK-ONLY','sec_insider_sales_5m','SEC smoke fixture','Smoke fixture','Deterministic fixture','Contract test only','whale','qualified');

@@ -1,5 +1,5 @@
 [Unit]
-Description=SkyShare Hunt 3 bounded Scrapling discovery (manual invocation only)
+Description=SkyShare Hunt 3 bounded Scrapling discovery and inbox processing
 After=network-online.target
 Wants=network-online.target
 
@@ -10,6 +10,9 @@ Group=skyshare-worker
 WorkingDirectory=/opt/supraintegration/workers/scrapling-hunt3
 EnvironmentFile=/etc/skyshare/scrapling-hunt3.env
 ExecStart=/opt/supraintegration/workers/scrapling-hunt3/.venv/bin/skyshare-scrapling-hunt3 --config config/dealer-domains.json --output /var/lib/skyshare/scrapling-hunt3/latest.jsonl --write-supabase
+ExecStartPost=/usr/bin/python3 /opt/supraintegration/workers/scrapling-hunt3/deploy/invoke_hunt3_processor.py
+TimeoutStartSec=20min
+RuntimeMaxSec=20min
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=true
@@ -18,5 +21,3 @@ ReadWritePaths=/var/lib/skyshare/scrapling-hunt3
 RestrictAddressFamilies=AF_INET AF_INET6
 LockPersonality=true
 MemoryDenyWriteExecute=true
-
-# No timer is shipped for this POC. An operator must explicitly start the unit.
