@@ -1,0 +1,22 @@
+[Unit]
+Description=SkyShare Hunt 3 bounded Scrapling discovery (manual invocation only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=skyshare-worker
+Group=skyshare-worker
+WorkingDirectory=/opt/supraintegration/workers/scrapling-hunt3
+EnvironmentFile=/etc/skyshare/scrapling-hunt3.env
+ExecStart=/opt/supraintegration/workers/scrapling-hunt3/.venv/bin/skyshare-scrapling-hunt3 --config config/dealer-domains.json --output /var/lib/skyshare/scrapling-hunt3/latest.jsonl --write-supabase
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/skyshare/scrapling-hunt3
+RestrictAddressFamilies=AF_INET AF_INET6
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+# No timer is shipped for this POC. An operator must explicitly start the unit.

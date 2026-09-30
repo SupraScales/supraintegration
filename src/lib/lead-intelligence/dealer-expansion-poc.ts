@@ -1,15 +1,32 @@
 import "server-only";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireInternalAdmin } from "@/lib/auth";
 import { requireHermesClient } from "@/lib/hermes";
 import { fetchAndParseDealerExpansion } from "@/lib/lead-intelligence/dealer-expansion";
 import {
   buildDealerExpansionCandidateDraft,
+  parseDealerExpansion,
   type DealerExpansionGateReason,
+  type DealerExpansionSource,
 } from "@/lib/lead-intelligence/dealer-expansion-parser";
 
 export const DEALER_EXPANSION_HUNT_KEY = "western-dealer-group-acquisition-expansion";
 const HUNT_LABEL = "Western Dealer Group Acquisition & Expansion";
+const HUNT_CONFIGURATION = {
+  source: "official_company_pages",
+  accepted_sources: ["company", "oem", "government", "sec_edgar"],
+  completed_event_required: true,
+  eligible_categories: ["automotive", "rv", "marine", "powersports", "heavy_equipment"],
+  owner_or_principal_required: true,
+  economic_or_operating_connection_required: true,
+  multi_location_required: true,
+  western11_required: true,
+  travel_footprint_required: true,
+  recency_days: 365,
+  ingest: ["manual_official_urls", "scrapling_public_web_inbox"],
+  model_policy: "deterministic_only",
+};
 
 type GateReason =
   | "raw_signal_seen"
@@ -23,6 +40,19 @@ type GateKind = "signal_seen" | "rejection" | "qualification" | "enrichment";
 export type DealerExpansionHunterResult =
   | { outcome: "candidate_created" | "duplicate"; candidateId: string; recommendation: "whale" | "good" }
   | { outcome: "rejected"; reason: string };
+
+type DealerExpansionExecutionInput = {
+  supabase: SupabaseClient;
+  organizationId: string;
+  huntId: string;
+  runId: string;
+  actorUserId: string | null;
+  eventUrl: string;
+  ownershipUrl: string;
+  adapter: "dealer_expansion_manual" | "scrapling_public_web_system";
+  finalizeRun: boolean;
+  sources?: DealerExpansionSource[];
+};
 
 function parserFailure(error: unknown) {
   const message = error instanceof Error ? error.message : "Official expansion pages could not be parsed.";
@@ -39,42 +69,76 @@ export async function runDealerExpansionHunter(
 ): Promise<DealerExpansionHunterResult> {
   const access = await requireInternalAdmin();
   const { supabase } = await requireHermesClient(clientId);
-
-  const { data: hunt, error: huntError } = await supabase.from("lead_hunts").upsert({
-    organization_id: clientId,
-    hunt_key: DEALER_EXPANSION_HUNT_KEY,
-    label: HUNT_LABEL,
-    priority: "p0",
-    enabled: true,
-    configuration: {
-      source: "official_company_pages",
-      accepted_sources: ["company", "oem", "government", "sec_edgar"],
-      completed_event_required: true,
-      eligible_categories: ["automotive", "rv", "marine", "powersports", "heavy_equipment"],
-      owner_or_principal_required: true,
-      economic_or_operating_connection_required: true,
-      multi_location_required: true,
-      western11_required: true,
-      travel_footprint_required: true,
-      recency_days: 365,
-      ingest: "manual_official_urls",
-      model_policy: "deterministic_only",
-    },
-    updated_by: access.user.id,
-  }, { onConflict: "organization_id,hunt_key" }).select("id").single();
-  if (huntError || !hunt) throw new Error("Dealer expansion hunt could not be initialized.");
-  const huntId = hunt.id;
+  const hunt = await ensureDealerExpansionHunt(supabase, clientId, access.user.id, true);
 
   const { data: run, error: runError } = await supabase.from("lead_hunt_runs").insert({
     organization_id: clientId,
-    hunt_id: huntId,
+    hunt_id: hunt.id,
     status: "running",
     trigger_kind: "manual",
     started_at: new Date().toISOString(),
     created_by: access.user.id,
   }).select("id").single();
   if (runError || !run) throw new Error("Dealer expansion hunt run could not be created.");
-  const runId = run.id;
+
+  return executeDealerExpansionHunter({
+    supabase,
+    organizationId: clientId,
+    huntId: hunt.id,
+    runId: run.id,
+    actorUserId: access.user.id,
+    eventUrl,
+    ownershipUrl,
+    adapter: "dealer_expansion_manual",
+    finalizeRun: true,
+  });
+}
+
+export async function ensureDealerExpansionHunt(
+  supabase: SupabaseClient,
+  organizationId: string,
+  actorUserId: string | null,
+  refreshConfiguration = false,
+) {
+  if (!refreshConfiguration) {
+    const { data: existing, error: lookupError } = await supabase.from("lead_hunts")
+      .select("id, enabled")
+      .eq("organization_id", organizationId)
+      .eq("hunt_key", DEALER_EXPANSION_HUNT_KEY)
+      .maybeSingle();
+    if (lookupError) throw new Error("Dealer expansion hunt lookup failed.");
+    if (existing) return existing as { id: string; enabled: boolean };
+  }
+
+  const { data: hunt, error } = await supabase.from("lead_hunts").upsert({
+    organization_id: organizationId,
+    hunt_key: DEALER_EXPANSION_HUNT_KEY,
+    label: HUNT_LABEL,
+    priority: "p0",
+    enabled: true,
+    configuration: HUNT_CONFIGURATION,
+    updated_by: actorUserId,
+  }, { onConflict: "organization_id,hunt_key" }).select("id, enabled").single();
+  if (error || !hunt) throw new Error("Dealer expansion hunt could not be initialized.");
+  return hunt as { id: string; enabled: boolean };
+}
+
+export async function executeDealerExpansionHunter(
+  input: DealerExpansionExecutionInput,
+): Promise<DealerExpansionHunterResult> {
+  const {
+    supabase,
+    organizationId: clientId,
+    huntId,
+    runId,
+    actorUserId,
+    eventUrl,
+    ownershipUrl,
+    adapter,
+    finalizeRun,
+    sources,
+  } = input;
+  const access = { user: { id: actorUserId } };
 
   async function recordGate(input: {
     kind: GateKind;
@@ -101,6 +165,7 @@ export async function runDealerExpansionHunter(
   }
 
   async function completeRun(summary: Record<string, unknown>) {
+    if (!finalizeRun) return;
     const { error } = await supabase.from("lead_hunt_runs").update({
       status: "completed",
       completed_at: new Date().toISOString(),
@@ -130,7 +195,9 @@ export async function runDealerExpansionHunter(
   try {
     let parsed;
     try {
-      parsed = await fetchAndParseDealerExpansion(eventUrl, ownershipUrl);
+      parsed = sources
+        ? parseDealerExpansion({ sources, runDate: new Date().toISOString().slice(0, 10) })
+        : await fetchAndParseDealerExpansion(eventUrl, ownershipUrl);
     } catch (error) {
       const failure = parserFailure(error);
       await recordGate({
@@ -276,7 +343,7 @@ export async function runDealerExpansionHunter(
       internal_reasoning: "Deterministic first-party dealer acquisition/expansion qualification. Distributed operations are a relevance signal only; no personal proceeds, travel, or aircraft usage were inferred.",
       source_orchestration: {
         source: "official_company_pages",
-        adapter: "dealer_expansion_manual",
+        adapter,
         signal_key: parsed.signalKey,
         candidate_event_key: draft.dedupeKey,
         event_url: parsed.eventUrl,
@@ -350,11 +417,13 @@ export async function runDealerExpansionHunter(
     });
     return { outcome: "candidate_created", candidateId: candidate.id, recommendation: draft.systemRecommendation };
   } catch (error) {
-    await supabase.from("lead_hunt_runs").update({
-      status: "failed",
-      completed_at: new Date().toISOString(),
-      error: error instanceof Error ? error.message : "Unknown dealer expansion hunter error",
-    }).eq("id", runId).eq("organization_id", clientId);
+    if (finalizeRun) {
+      await supabase.from("lead_hunt_runs").update({
+        status: "failed",
+        completed_at: new Date().toISOString(),
+        error: error instanceof Error ? error.message : "Unknown dealer expansion hunter error",
+      }).eq("id", runId).eq("organization_id", clientId);
+    }
     throw error;
   }
 }

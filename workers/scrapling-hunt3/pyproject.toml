@@ -1,0 +1,36 @@
+[project]
+name = "skyshare-scrapling-hunt3"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "scrapling[fetchers]==0.4.15",
+]
+
+[project.scripts]
+skyshare-scrapling-hunt3 = "skyshare_scrapling.cli:main"
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["skyshare_scrapling"]
+
+[build-system]
+requires = ["setuptools>=78.1.1"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
