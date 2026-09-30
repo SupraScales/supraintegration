@@ -16,10 +16,10 @@ set local role authenticated;
 select set_config('request.jwt.claims',jsonb_build_object('sub',current_setting('skyshare_smoke.internal_user_id'),'role','authenticated')::text,true);
 select pg_temp.check_ok(exists(select 1 from lead_hunts where id='1d38483b-e5da-41cd-a5c0-6ecf5081060e'), 'internal access to SEC hunt');
 set local role service_role;
-insert into lead_discovery_items(id,organization_id,hunt_id,source_key,source_type,source_url,form_type,accession_number,issuer_cik,filing_date,status,metadata)
+insert into lead_discovery_items(id,organization_id,hunt_id,source_key,source_type,source_url,form_type,accession_number,issuer_cik,filing_date,status,processed_at,metadata)
 values
-('ffffffff-0000-4000-8000-000000000006','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922','1d38483b-e5da-41cd-a5c0-6ecf5081060e','sec-form4:0000789019-26-000161','sec_daily_index','https://www.sec.gov/Archives/edgar/data/789019/0000789019-26-000161.txt','4','0000789019-26-000161','789019','2026-09-01','pending','{"discovery_role":"candidate_source"}'),
-('ffffffff-0000-4000-8000-000000000007','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922','1d38483b-e5da-41cd-a5c0-6ecf5081060e','sec-form4:0000789019-26-000162','sec_daily_index','https://www.sec.gov/Archives/edgar/data/789019/0000789019-26-000162.txt','4/A','0000789019-26-000162','789019','2026-09-02','completed','{"discovery_role":"amendment_support","amendment_policy":"audit_support_no_candidate"}');
+('ffffffff-0000-4000-8000-000000000006','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922','1d38483b-e5da-41cd-a5c0-6ecf5081060e','sec-form4:0000789019-26-000161','sec_daily_index','https://www.sec.gov/Archives/edgar/data/789019/0000789019-26-000161.txt','4','0000789019-26-000161','789019','2026-09-01','pending',null,'{"discovery_role":"candidate_source"}'),
+('ffffffff-0000-4000-8000-000000000007','85ded2c8-d4b0-4109-b3c0-ef8c15ab4922','1d38483b-e5da-41cd-a5c0-6ecf5081060e','sec-form4:0000789019-26-000162','sec_daily_index','https://www.sec.gov/Archives/edgar/data/789019/0000789019-26-000162.txt','4/A','0000789019-26-000162','789019','2026-09-02','completed',now(),'{"discovery_role":"amendment_support","amendment_policy":"audit_support_no_candidate"}');
 insert into lead_discovery_items(organization_id,hunt_id,source_key,source_type,source_url,form_type,accession_number,issuer_cik,filing_date)
 values('85ded2c8-d4b0-4109-b3c0-ef8c15ab4922','1d38483b-e5da-41cd-a5c0-6ecf5081060e','sec-form4:0000789019-26-000161','sec_daily_index','https://www.sec.gov/Archives/edgar/data/789019/0000789019-26-000161.txt','4','0000789019-26-000161','789019','2026-09-01')
 on conflict(organization_id,hunt_id,source_key) do nothing;
