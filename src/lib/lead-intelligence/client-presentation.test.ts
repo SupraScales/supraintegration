@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 // @ts-expect-error Bare Node's TypeScript runner requires the source extension.
-import { formatClientGeography, leadEventAmountLabel } from "./client-presentation.ts";
+import { clientSignalSourceLabel, formatClientDate, formatClientDecision, formatClientGeography, formatSystemRating, leadEventAmountLabel } from "./client-presentation.ts";
 
 test("formats verified dealer operating locations without exposing normalization metadata", () => {
   assert.equal(
@@ -35,4 +35,16 @@ test("event amounts retain Hunt-specific financial attribution labels", () => {
   assert.equal(leadEventAmountLabel("sec-western-founder-ipo-100m"), "Total IPO offering value");
   assert.equal(leadEventAmountLabel("sec-8k-western-founder-mna-100m"), "Company transaction value");
   assert.equal(leadEventAmountLabel("sec_insider_sales_5m"), "Transaction / event amount");
+});
+
+test("formats client-facing operational values without changing their source values", () => {
+  assert.equal(formatClientDate("2025-03-24"), "Mar 24, 2025");
+  assert.equal(formatSystemRating("whale"), "WHALE");
+  assert.equal(formatClientDecision("override", "good"), "Good prospect");
+  assert.equal(formatClientDecision(null, null), "Awaiting review");
+  assert.equal(clientSignalSourceLabel("sec-western-founder-ipo-100m"), "Completed public offering");
+});
+
+test("normalizes client geography casing", () => {
+  assert.equal(formatClientGeography({ city: "SAN FRANCISCO", state: "ca" }), "San Francisco, CA");
 });

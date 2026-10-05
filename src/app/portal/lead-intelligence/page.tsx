@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ProductPageHeader, StatusBadge } from "@/components/product-shell";
 import { getPortalLeadList } from "@/lib/lead-intelligence";
+import { clientSignalSourceLabel, formatClientDecision, formatSystemRating } from "@/lib/lead-intelligence/client-presentation";
+import { formatPortalOrganizationName } from "@/lib/portal-presentation";
 
 export default async function LeadIntelligencePage({
   searchParams,
@@ -8,7 +10,8 @@ export default async function LeadIntelligencePage({
   searchParams: Promise<{ recommendation?: string; decision?: string; hunt?: string }>;
 }) {
   const params = await searchParams;
-  const { candidates, feedback } = await getPortalLeadList();
+  const { access, candidates, feedback } = await getPortalLeadList();
+  const organizationName = formatPortalOrganizationName(access.organization.name);
   const feedbackByCandidate = new Map(feedback.map((item) => [item.candidate_id, item]));
 
   const filtered = candidates.filter((candidate) => {
@@ -24,16 +27,16 @@ export default async function LeadIntelligencePage({
   return (
     <>
       <ProductPageHeader
-        eyebrow="SkyShare / intelligence queue"
+        eyebrow="Acquisition intelligence"
         title="Lead Intelligence"
-        description="Supra ranks the opportunity first. Review the evidence, then approve, reject, or override the recommendation."
+        description="Review each opportunity, its source-backed evidence, and your team’s saved decision."
         actions={<StatusBadge>{filtered.length} visible</StatusBadge>}
       />
 
-      <form className="product-panel" method="get">
-        <div className="connection-list">
+      <form className="portal-filter-bar" method="get">
+        <div className="portal-filter-fields">
           <label>
-            <span>System recommendation</span>
+            <span>System rating</span>
             <select name="recommendation" defaultValue={params.recommendation ?? ""}>
               <option value="">All</option>
               <option value="whale">Whale</option>
@@ -42,7 +45,7 @@ export default async function LeadIntelligencePage({
             </select>
           </label>
           <label>
-            <span>Your decision</span>
+            <span>{organizationName} decision</span>
             <select name="decision" defaultValue={params.decision ?? ""}>
               <option value="">All</option>
               <option value="unreviewed">Unreviewed</option>
@@ -52,31 +55,25 @@ export default async function LeadIntelligencePage({
             </select>
           </label>
           <label>
-            <span>Source hunt</span>
+            <span>Signal source</span>
             <select name="hunt" defaultValue={params.hunt ?? ""}>
               <option value="">All</option>
-              {hunts.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+              {hunts.map(([key]) => <option key={key} value={key}>{clientSignalSourceLabel(key)}</option>)}
             </select>
           </label>
-          <button type="submit">Apply filters</button>
+          <div className="portal-filter-actions"><button className="portal-primary-action" type="submit">Apply filters</button><Link href="/portal/lead-intelligence">Reset</Link></div>
         </div>
       </form>
 
-      <section className="action-list" aria-label="Published leads">
+      <section className="portal-lead-list" aria-label="Published leads">
         {filtered.map((lead) => {
           const review = feedbackByCandidate.get(lead.id);
-          const decisionLabel = review?.human_decision === "override"
-            ? `override → ${review.human_override}`
-            : review?.human_decision ?? "unreviewed";
           return (
             <article key={lead.id}>
-              <div>
-                <StatusBadge>{`SYSTEM: ${(lead.system_recommendation ?? "pending").toUpperCase()}`}</StatusBadge>
-                <b>{lead.person_name}</b>
-              </div>
-              <p>{lead.company_name ?? "Company not confirmed"}{lead.role ? ` · ${lead.role}` : ""}</p>
-              <p>{lead.trigger_summary}</p>
-              <small>{lead.source_hunt_label} · {lead.supra_lead_id} · Human: {decisionLabel}</small>
+              <div className="portal-lead-identity"><b>{lead.person_name}</b><p>{lead.company_name ?? "Company not confirmed"}{lead.role ? ` · ${lead.role}` : ""}</p></div>
+              <div className="portal-lead-ratings"><span><small>System rating</small><b>{formatSystemRating(lead.system_recommendation)}</b></span><span><small>{organizationName} decision</small><b>{formatClientDecision(review?.human_decision, review?.human_override)}</b></span></div>
+              <p className="portal-lead-signal">{lead.trigger_summary}</p>
+              <small className="portal-signal-source">{clientSignalSourceLabel(lead.source_hunt_key)}</small>
               <Link href={`/portal/lead-intelligence/${lead.id}`}>Review intelligence →</Link>
             </article>
           );
