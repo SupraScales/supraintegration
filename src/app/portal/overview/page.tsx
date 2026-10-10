@@ -6,7 +6,7 @@ import {
 } from "@/components/product-shell";
 import { getPortalContext } from "@/lib/portal";
 import { getPortalLeadList } from "@/lib/lead-intelligence";
-import { formatClientDecision, formatSystemRating } from "@/lib/lead-intelligence/client-presentation";
+import { createClientLeadReference, formatClientDecision, formatSystemRating } from "@/lib/lead-intelligence/client-presentation";
 import { createClient } from "@/lib/supabase/server";
 
 type KpiRow = {
@@ -115,7 +115,7 @@ export default async function PortalOverviewPage() {
                 {recentLeads.map((lead) => {
                   const review = feedbackByCandidate.get(lead.id);
                   return (
-                    <Link href={`/portal/lead-intelligence/${lead.id}`} key={lead.id}>
+                    <Link href={`/portal/lead-intelligence/${createClientLeadReference(lead)}`} key={lead.id}>
                       <div><strong>{lead.person_name}</strong><span>{lead.company_name ?? "Company not confirmed"}</span></div>
                       <div><span>System rating</span><b>{formatSystemRating(lead.system_recommendation)}</b></div>
                       <div><span>Your decision</span><b>{formatClientDecision(review?.human_decision, review?.human_override)}</b></div>

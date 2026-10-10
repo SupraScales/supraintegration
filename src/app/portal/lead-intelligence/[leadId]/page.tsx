@@ -1,13 +1,21 @@
 import Link from "next/link";
 import { ProductPageHeader, StatusBadge } from "@/components/product-shell";
 import { getPortalLeadDetail } from "@/lib/lead-intelligence";
-import { clientSignalSourceLabel, formatClientDate, formatClientDecision, formatClientGeography, formatSystemRating, leadEventAmountLabel } from "@/lib/lead-intelligence/client-presentation";
+import { clientSignalSourceLabel, formatClientDate, formatClientDecision, formatClientFact, formatClientGeography, formatClientNarrative, formatClientRole, formatSystemRating, leadEventAmountLabel } from "@/lib/lead-intelligence/client-presentation";
 import { saveLeadDecision } from "@/app/portal/lead-intelligence/actions";
 import { formatPortalOrganizationName } from "@/lib/portal-presentation";
 
 function renderFacts(items: unknown[]) {
   if (!items.length) return <p>None recorded.</p>;
-  return <ul>{items.map((item, index) => <li key={index}>{typeof item === "string" ? item : JSON.stringify(item)}</li>)}</ul>;
+  return <ul>{items.map((item, index) => {
+    const value = typeof item === "string" ? formatClientFact(item) : JSON.stringify(item);
+    const separator = value.indexOf(": ");
+    return (
+      <li key={index}>
+        {separator > 0 ? <><strong>{value.slice(0, separator)}</strong>{value.slice(separator)}</> : value}
+      </li>
+    );
+  })}</ul>;
 }
 
 function money(amount: number | null, currency: string) {
@@ -16,19 +24,21 @@ function money(amount: number | null, currency: string) {
 }
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ leadId: string }> }) {
-  const { leadId } = await params;
-  const { access, candidate, evidence, feedback } = await getPortalLeadDetail(leadId);
+  const { leadId: leadReference } = await params;
+  const { access, candidate, evidence, feedback } = await getPortalLeadDetail(leadReference);
   const organizationName = formatPortalOrganizationName(access.organization.name);
-  const decisionAction = saveLeadDecision.bind(null, candidate.id);
+  const decisionAction = saveLeadDecision.bind(null, candidate.id, leadReference);
   const systemRating = formatSystemRating(candidate.system_recommendation);
   const decision = formatClientDecision(feedback?.human_decision, feedback?.human_override);
+  const clientRole = formatClientRole(candidate.role);
+  const contactDetailsAvailable = Boolean(candidate.contact_email || candidate.contact_phone);
 
   return (
     <>
       <ProductPageHeader
         eyebrow="Acquisition intelligence"
         title={candidate.person_name}
-        description={`${candidate.company_name ?? "Company not confirmed"}${candidate.role ? ` · ${candidate.role}` : ""}`}
+        description={`${candidate.company_name ?? "Company not confirmed"}${clientRole ? ` · ${clientRole}` : ""}`}
         actions={<StatusBadge>{`System rating · ${systemRating}`}</StatusBadge>}
       />
 
@@ -44,29 +54,30 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
         <div><dt>Event date</dt><dd>{formatClientDate(candidate.event_date)}</dd></div>
         <div><dt>Signal source</dt><dd>{clientSignalSourceLabel(candidate.source_hunt_key)}</dd></div>
         <div><dt>Data confidence</dt><dd>{candidate.data_confidence == null ? "—" : `${candidate.data_confidence}%`}</dd></div>
-        <div><dt>Contact status</dt><dd>{!candidate.contact_confidence ? "Not enriched" : `${candidate.contact_confidence}% confidence`}</dd></div>
+        <div><dt>Contact status</dt><dd>{!candidate.contact_confidence ? "Not yet enriched" : `${candidate.contact_confidence}% confidence`}</dd></div>
       </dl></section>
 
       <section className="product-section">
         <div className="product-section-heading"><div><p className="product-kicker"><span aria-hidden />System analysis</p><h2>Why this person is here</h2></div></div>
-        <div className="product-panel">
-          <h3>Why found</h3><p>{candidate.why_found}</p>
-          <h3>Why SkyShare / OpenJet may fit</h3><p>{candidate.why_fit ?? "No client-safe fit summary yet."}</p>
-          <h3>Business footprint</h3><p>{candidate.business_footprint ?? "Not confirmed."}</p>
+        <div className="portal-analysis-panel">
+          <h3>Why found</h3><p>{formatClientNarrative(candidate.why_found)}</p>
+          <h3>Why SkyShare / OpenJet may fit</h3><p>{formatClientNarrative(candidate.why_fit) ?? "No client-safe fit summary yet."}</p>
+          <h3>Business footprint</h3><p>{formatClientNarrative(candidate.business_footprint) ?? "Not confirmed."}</p>
         </div>
       </section>
 
       <section className="product-section">
         <div className="portal-fact-grid">
-          <article><h3>Known</h3><p>Confirmed by available sources</p>{renderFacts(candidate.known_facts)}</article>
-          <article><h3>Inferred</h3><p>Relevant signals, not confirmed facts</p>{renderFacts(candidate.inferred_facts)}</article>
-          <article><h3>Unknown</h3><p>Still requires validation</p>{renderFacts(candidate.unknown_facts)}</article>
+          <article className="portal-fact-known"><h3>Known</h3><p>Confirmed by sources</p>{renderFacts(candidate.known_facts)}</article>
+          <article className="portal-fact-inferred"><h3>Inferred</h3><p>Relevant signal, not confirmed</p>{renderFacts(candidate.inferred_facts)}</article>
+          <article className="portal-fact-unknown"><h3>Unknown</h3><p>Still needs validation</p>{renderFacts(candidate.unknown_facts)}</article>
         </div>
       </section>
 
       <section className="product-section">
         <div className="product-section-heading"><div><p className="product-kicker"><span aria-hidden />Contact + relevance</p><h2>Available intelligence</h2></div></div>
-        <dl className="portal-intelligence-grid"><div><dt>Email</dt><dd>{candidate.contact_email ?? "Not enriched yet"}</dd></div><div><dt>Phone</dt><dd>{candidate.contact_phone ?? "Not enriched yet"}</dd></div><div><dt>Geography</dt><dd>{formatClientGeography(candidate.geography)}</dd></div><div><dt>Likely product fit</dt><dd>{candidate.likely_product_fit ?? "Not assigned"}</dd></div></dl>
+        {!contactDetailsAvailable ? <p className="portal-contact-note">Direct contact details have not been enriched yet.</p> : null}
+        <dl className="portal-intelligence-grid"><div><dt>Email</dt><dd>{candidate.contact_email ?? "Not available"}</dd></div><div><dt>Phone</dt><dd>{candidate.contact_phone ?? "Not available"}</dd></div><div><dt>Geography</dt><dd>{formatClientGeography(candidate.geography)}</dd></div><div><dt>Likely product fit</dt><dd>{candidate.likely_product_fit ?? "Not assigned"}</dd></div></dl>
       </section>
 
       <section className="product-section">
@@ -98,7 +109,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
           <form action={decisionAction} className="portal-decision-card portal-decision-override">
             <input type="hidden" name="human_decision" value="override" />
             <label>
-              <span>Correct the system rating</span>
+              <span>Set your rating</span>
               <select
                 key={feedback?.human_override ?? candidate.system_recommendation ?? "good"}
                 name="human_override"
@@ -109,7 +120,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ lea
                 <option value="bad">Bad</option>
               </select>
             </label>
-            <button type="submit">Save corrected decision</button>
+            <button type="submit">Save rating</button>
           </form>
         </div>
       </section>

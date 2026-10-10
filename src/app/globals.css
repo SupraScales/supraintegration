@@ -3865,7 +3865,7 @@ textarea:disabled {
 }
 
 .product-app-portal .product-page-header h1 {
-  font-size: clamp(2.3rem, 4vw, 4rem);
+  font-size: clamp(2rem, 3vw, 3.1rem);
 }
 
 .product-app-portal .product-logo b {
@@ -3938,12 +3938,27 @@ textarea:disabled {
 .portal-filter-actions a:hover,
 .portal-filter-actions button:hover { border-color: var(--color-red); }
 
+.portal-empty-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.6rem;
+  margin-top: 1.25rem;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid var(--color-white);
+  font-family: var(--font-mono);
+  font-size: 0.48rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .portal-lead-list { margin-top: 1.5rem; border-top: 1px solid var(--color-rule); }
-.portal-lead-list article { display: grid; grid-template-columns: 1.1fr 1fr 1.5fr; gap: 0.8rem 1.5rem; align-items: center; padding: 1.35rem 0; border-bottom: 1px solid var(--color-rule); }
+.portal-lead-list article { display: grid; grid-template-columns: 1.1fr 1fr 1.5fr; gap: 0.7rem 1.35rem; align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--color-rule); }
 .portal-lead-identity { display: grid; gap: 0.3rem; }
 .portal-lead-identity b { font-family: var(--font-display); font-size: 1.2rem; font-weight: 500; text-transform: uppercase; }
 .portal-lead-identity p,
-.portal-lead-signal { color: var(--color-white-soft); font-size: 0.72rem; font-weight: 300; line-height: 1.55; }
+.portal-lead-signal { color: var(--color-white-soft); font-size: 0.72rem; font-weight: 300; line-height: 1.45; }
+.portal-lead-signal { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .portal-lead-ratings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
 .portal-lead-ratings span { display: grid; gap: 0.35rem; }
 .portal-lead-ratings b { font-size: 0.74rem; font-weight: 500; }
@@ -3958,12 +3973,22 @@ textarea:disabled {
 .portal-lead-summary dd { margin: 0; color: var(--color-white); font-size: 0.8rem; font-weight: 500; line-height: 1.55; }
 .portal-lead-summary dd small { display: block; margin-top: 0.3rem; color: var(--color-white-dim); font-size: 0.62rem; font-weight: 300; }
 
+.portal-analysis-panel { display: grid; gap: 0.35rem; padding: 1.35rem; border: 1px solid var(--color-rule); background: var(--color-paper-raised); }
+.portal-analysis-panel h3 { margin-top: 0.75rem; font-family: var(--font-display); font-size: 1rem; font-weight: 500; }
+.portal-analysis-panel h3:first-child { margin-top: 0; }
+.portal-analysis-panel p { color: var(--color-white-soft); font-size: 0.76rem; font-weight: 300; line-height: 1.55; }
+
 .portal-fact-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-top: 2rem; align-items: start; }
 .portal-fact-grid article { padding: 1.35rem; border: 1px solid var(--color-rule); }
+.portal-fact-grid .portal-fact-known { border-top: 3px solid var(--color-white); }
+.portal-fact-grid .portal-fact-inferred { border-top: 3px double var(--color-rule); background: var(--color-paper-raised); }
+.portal-fact-grid .portal-fact-unknown { border-style: dashed; }
 .portal-fact-grid h3 { font-family: var(--font-display); font-size: 1.25rem; font-weight: 500; text-transform: uppercase; }
 .portal-fact-grid article > p { margin-top: 0.3rem; color: var(--color-white-dim); font-size: 0.65rem; }
 .portal-fact-grid ul { display: grid; gap: 0.55rem; margin: 1rem 0 0; padding-left: 1rem; color: var(--color-white-soft); font-size: 0.72rem; line-height: 1.5; }
+.portal-fact-grid li strong { color: var(--color-white); font-weight: 500; }
 
+.portal-contact-note { max-width: 46rem; margin-top: 1.15rem; color: var(--color-white-dim); font-size: 0.72rem; line-height: 1.5; }
 .portal-intelligence-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 1.5rem; border: 1px solid var(--color-rule); }
 .portal-intelligence-grid > div { display: grid; gap: 0.55rem; padding: 1.2rem; border-right: 1px solid var(--color-rule); border-bottom: 1px solid var(--color-rule); }
 .portal-intelligence-grid > div:nth-child(even) { border-right: 0; }
