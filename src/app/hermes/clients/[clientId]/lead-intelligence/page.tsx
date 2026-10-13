@@ -1,6 +1,7 @@
 import { ProductPageHeader, StatusBadge } from "@/components/product-shell";
 import { getHermesLeadIntelligence } from "@/lib/lead-intelligence";
-import { runSecMnaAction, runSecPocAction, updateLeadCandidateState } from "@/app/hermes/clients/[clientId]/lead-intelligence/actions";
+import { runDealerExpansionAction, runSecForm4DiscoveryNowAction, runSecIpoAction, runSecIpoDiscoveryNowAction, runSecMnaAction, runSecMnaDiscoveryNowAction, runSecPocAction, updateLeadCandidateState } from "@/app/hermes/clients/[clientId]/lead-intelligence/actions";
+import { leadEventAmountLabel } from "@/lib/lead-intelligence/client-presentation";
 
 function pretty(value: unknown) {
   return JSON.stringify(value ?? {}, null, 2);
@@ -26,6 +27,12 @@ function reasonLabel(code: string) {
   return code.replaceAll("_", " ");
 }
 
+function summaryCount(summary: unknown, key: string) {
+  if (!summary || typeof summary !== "object") return 0;
+  const value = (summary as Record<string, unknown>)[key];
+  return typeof value === "number" ? value : 0;
+}
+
 export default async function HermesLeadIntelligencePage({ params }: { params: Promise<{ clientId: string }> }) {
   const { clientId } = await params;
   const {
@@ -36,13 +43,50 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
     feedback,
     hunts,
     signals,
+    runs,
     runSummaries,
     gateEvents,
+    discoveryItems,
+    discoveryError,
   } = await getHermesLeadIntelligence(clientId);
   const privateByCandidate = new Map(privateDetails.map((item) => [item.candidate_id, item]));
   const candidateById = new Map(candidates.map((candidate) => [candidate.id, candidate]));
   const runSec = runSecPocAction.bind(null, clientId);
   const runSecMna = runSecMnaAction.bind(null, clientId);
+  const runDealerExpansion = runDealerExpansionAction.bind(null, clientId);
+  const runSecIpo = runSecIpoAction.bind(null, clientId);
+  const runHunt2DiscoveryNow = runSecMnaDiscoveryNowAction.bind(null, clientId);
+  const runHunt1DiscoveryNow = runSecForm4DiscoveryNowAction.bind(null, clientId);
+  const runHunt4DiscoveryNow = runSecIpoDiscoveryNowAction.bind(null, clientId);
+  const discoveryConfigured = process.env.SKYSHARE_DISCOVERY_ORGANIZATION_ID?.trim() === clientId;
+  const hunt1DiscoveryEnabled = discoveryConfigured
+    && process.env.SKYSHARE_DISCOVERY_HUNT1_ENABLED?.trim().toLowerCase() === "true";
+  const hunt2DiscoveryEnabled = discoveryConfigured
+    && process.env.SKYSHARE_DISCOVERY_HUNT2_ENABLED?.trim().toLowerCase() === "true";
+  const hunt4DiscoveryEnabled = discoveryConfigured
+    && process.env.SKYSHARE_DISCOVERY_HUNT4_ENABLED?.trim().toLowerCase() === "true";
+  const hunt3DiscoveryEnabled = discoveryConfigured
+    && process.env.SKYSHARE_DISCOVERY_HUNT3_PUBLIC_WEB_ENABLED?.trim().toLowerCase() === "true";
+  const hunt1DiscoveryHunt = hunts.find((hunt) => hunt.hunt_key === "sec-insider-sale-5m");
+  const hunt2DiscoveryHunt = hunts.find((hunt) => hunt.hunt_key === "sec-8k-western-founder-mna-100m");
+  const hunt3DiscoveryHunt = hunts.find((hunt) => hunt.hunt_key === "western-dealer-group-acquisition-expansion");
+  const hunt4DiscoveryHunt = hunts.find((hunt) => hunt.hunt_key === "sec-western-founder-ipo-100m");
+  const hunt1DiscoveryRuns = runs.filter((run) => run.trigger_kind === "system" && run.hunt_id === hunt1DiscoveryHunt?.id);
+  const hunt2DiscoveryRuns = runs.filter((run) => run.trigger_kind === "system" && run.hunt_id === hunt2DiscoveryHunt?.id);
+  const hunt3DiscoveryRuns = runs.filter((run) => run.trigger_kind === "system" && run.hunt_id === hunt3DiscoveryHunt?.id);
+  const hunt4DiscoveryRuns = runs.filter((run) => run.trigger_kind === "system" && run.hunt_id === hunt4DiscoveryHunt?.id);
+  const lastHunt1Attempt = hunt1DiscoveryRuns[0];
+  const lastHunt1Success = hunt1DiscoveryRuns.find((run) => run.status === "completed");
+  const lastHunt2Attempt = hunt2DiscoveryRuns[0];
+  const lastHunt2Success = hunt2DiscoveryRuns.find((run) => run.status === "completed");
+  const lastHunt4Attempt = hunt4DiscoveryRuns[0];
+  const lastHunt4Success = hunt4DiscoveryRuns.find((run) => run.status === "completed");
+  const lastHunt3Attempt = hunt3DiscoveryRuns[0];
+  const lastHunt3Success = hunt3DiscoveryRuns.find((run) => run.status === "completed");
+  const hunt1DiscoveryItems = discoveryItems.filter((item) => item.hunt_id === hunt1DiscoveryHunt?.id);
+  const hunt2DiscoveryItems = discoveryItems.filter((item) => item.hunt_id === hunt2DiscoveryHunt?.id);
+  const hunt4DiscoveryItems = discoveryItems.filter((item) => item.hunt_id === hunt4DiscoveryHunt?.id);
+  const hunt3DiscoveryItems = discoveryItems.filter((item) => item.hunt_id === hunt3DiscoveryHunt?.id);
 
   return (
     <>
@@ -55,6 +99,117 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
 
       <section className="product-section">
         <div className="product-section-heading">
+          <div><p className="product-kicker"><span aria-hidden />Hunt #1 — Form 4 Discovery</p><h2>Daily insider-sale filing inbox</h2></div>
+          <StatusBadge>{hunt1DiscoveryEnabled ? "Enabled" : "Disabled"}</StatusBadge>
+        </div>
+        <div className="product-panel">
+          <p>The shared SEC snapshot discovers Form 4 accessions. Amendments remain audit support and cannot create a second candidate.</p>
+          {discoveryError ? <p>Discovery storage unavailable: {discoveryError}</p> : null}
+          {hunt1DiscoveryEnabled ? <form action={runHunt1DiscoveryNow}><button type="submit">Run Hunt #1 discovery now</button></form> : null}
+          <p>Last attempt: {lastHunt1Attempt ? `${time(String(lastHunt1Attempt.started_at ?? lastHunt1Attempt.created_at))} · ${String(lastHunt1Attempt.status)}` : "Never"}</p>
+          <p>Last success: {lastHunt1Success ? time(String(lastHunt1Success.completed_at)) : "Never"}</p>
+          {lastHunt1Attempt ? <details><summary>Latest discovery counts</summary><pre>{pretty(lastHunt1Attempt.summary)}</pre></details> : null}
+          <p>{hunt1DiscoveryItems.length} recent inbox items</p>
+          <ul>
+            {hunt1DiscoveryItems.slice(0, 10).map((item) => (
+              <li key={item.id}>
+                <a href={item.source_url} target="_blank" rel="noreferrer">{item.accession_number}</a>
+                {` · ${item.form_type} · ${item.status} · attempts ${item.attempt_count}`}
+                {item.last_error_code ? ` · ${item.last_error_code}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section className="product-section">
+        <div className="product-section-heading">
+          <div><p className="product-kicker"><span aria-hidden />Hunt #2 — Founder M&amp;A Discovery</p><h2>Daily official filing inbox</h2></div>
+          <StatusBadge>{hunt2DiscoveryEnabled ? "Enabled" : "Disabled"}</StatusBadge>
+        </div>
+        <div className="product-panel">
+          <p>Seven-day SEC daily-index reconciliation. Discovered filings remain internal and qualified candidates remain unpublished for Hermes review.</p>
+          {discoveryError ? <p>Discovery storage unavailable: {discoveryError}</p> : null}
+          {hunt2DiscoveryEnabled ? <form action={runHunt2DiscoveryNow}><button type="submit">Run Hunt #2 discovery now</button></form> : null}
+          <p>Last attempt: {lastHunt2Attempt ? `${time(String(lastHunt2Attempt.started_at ?? lastHunt2Attempt.created_at))} · ${String(lastHunt2Attempt.status)}` : "Never"}</p>
+          <p>Last success: {lastHunt2Success ? time(String(lastHunt2Success.completed_at)) : "Never"}</p>
+          {lastHunt2Attempt ? <details><summary>Latest discovery counts</summary><pre>{pretty(lastHunt2Attempt.summary)}</pre></details> : null}
+          <p>{hunt2DiscoveryItems.length} recent inbox items</p>
+          <ul>
+            {hunt2DiscoveryItems.slice(0, 10).map((item) => (
+              <li key={item.id}>
+                <a href={item.source_url} target="_blank" rel="noreferrer">{item.accession_number}</a>
+                {` · ${item.form_type} · ${item.status} · attempts ${item.attempt_count}`}
+                {item.last_error_code ? ` · ${item.last_error_code}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section className="product-section">
+        <div className="product-section-heading">
+          <div><p className="product-kicker"><span aria-hidden />Hunt #3 — Public-Web Automation</p><h2>Scheduled dealer evidence inbox</h2></div>
+          <StatusBadge>{hunt3DiscoveryEnabled ? "Enabled" : "Disabled"}</StatusBadge>
+        </div>
+        <div className="product-panel">
+          <p>The bounded VPS worker writes normalized official pages to the shared inbox before the existing deterministic Hunt #3 processor pairs evidence.</p>
+          <p>Last attempt: {lastHunt3Attempt ? `${time(String(lastHunt3Attempt.started_at ?? lastHunt3Attempt.created_at))} · ${String(lastHunt3Attempt.status)}` : "Never"}</p>
+          <p>Last success: {lastHunt3Success ? time(String(lastHunt3Success.completed_at)) : "Never"}</p>
+          {lastHunt3Attempt ? <details><summary>Latest discovery counts</summary><pre>{pretty(lastHunt3Attempt.summary)}</pre></details> : null}
+          <p>{hunt3DiscoveryItems.length} recent inbox items</p>
+          <ul>
+            {hunt3DiscoveryItems.slice(0, 10).map((item) => (
+              <li key={item.id}>
+                <a href={item.source_url} target="_blank" rel="noreferrer">{item.source_key}</a>
+                {` · ${item.status} · attempts ${item.attempt_count}`}
+                {item.last_error_code ? ` · ${item.last_error_code}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section className="product-section">
+        <div className="product-section-heading">
+          <div><p className="product-kicker"><span aria-hidden />Hunt #4 — Founder IPO Discovery</p><h2>Durable 424B4 / CERT pairing</h2></div>
+          <StatusBadge>{hunt4DiscoveryEnabled ? "Enabled" : "Disabled"}</StatusBadge>
+        </div>
+        <div className="product-panel">
+          <p>Seven-day shared SEC daily-index reconciliation. Prospectuses wait for one same-issuer, time-bounded CERT before the existing deterministic Hunt #4 machine runs.</p>
+          {discoveryError ? <p>Discovery storage unavailable: {discoveryError}</p> : null}
+          {hunt4DiscoveryEnabled ? <form action={runHunt4DiscoveryNow}><button type="submit">Run Hunt #4 discovery now</button></form> : null}
+          <p>Last attempt: {lastHunt4Attempt ? `${time(String(lastHunt4Attempt.started_at ?? lastHunt4Attempt.created_at))} · ${String(lastHunt4Attempt.status)}` : "Never"}</p>
+          <p>Last success: {lastHunt4Success ? time(String(lastHunt4Success.completed_at)) : "Never"}</p>
+          {lastHunt4Attempt ? (
+            <div className="connection-list">
+              <div className="product-panel"><span>Indexes</span><b>{summaryCount(lastHunt4Attempt.summary, "indexes_fetched")}</b></div>
+              <div className="product-panel"><span>Discovered</span><b>{summaryCount(lastHunt4Attempt.summary, "discovered_filings")}</b></div>
+              <div className="product-panel"><span>Paired</span><b>{summaryCount(lastHunt4Attempt.summary, "paired")}</b></div>
+              <div className="product-panel"><span>Pending CERT / pair</span><b>{summaryCount(lastHunt4Attempt.summary, "pending_pairing")}</b></div>
+              <div className="product-panel"><span>Processed</span><b>{summaryCount(lastHunt4Attempt.summary, "processed")}</b></div>
+              <div className="product-panel"><span>Candidate</span><b>{summaryCount(lastHunt4Attempt.summary, "candidates")}</b></div>
+              <div className="product-panel"><span>Duplicate</span><b>{summaryCount(lastHunt4Attempt.summary, "duplicates")}</b></div>
+              <div className="product-panel"><span>Rejected</span><b>{summaryCount(lastHunt4Attempt.summary, "rejected")}</b></div>
+              <div className="product-panel"><span>Deferred</span><b>{summaryCount(lastHunt4Attempt.summary, "deferred")}</b></div>
+              <div className="product-panel"><span>Failed</span><b>{summaryCount(lastHunt4Attempt.summary, "failed")}</b></div>
+            </div>
+          ) : null}
+          <p>{hunt4DiscoveryItems.length} recent inbox items</p>
+          <ul>
+            {hunt4DiscoveryItems.slice(0, 12).map((item) => (
+              <li key={item.id}>
+                <a href={item.source_url} target="_blank" rel="noreferrer">{item.accession_number}</a>
+                {` · ${item.form_type} · ${item.status} · attempts ${item.attempt_count}`}
+                {item.last_error_code ? ` · ${item.last_error_code}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section className="product-section">
+        <div className="product-section-heading">
           <div><p className="product-kicker"><span aria-hidden />SEC POC</p><h2>Run one real Form 4 through the machine</h2></div>
         </div>
         <form action={runSec} className="product-panel">
@@ -64,6 +219,42 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
           </label>
           <p>Level 0 deterministic processing only: transaction parsing, math, $5M threshold, Western-11 check, dedupe, and initial recommendation. No paid API and no model call.</p>
           <button type="submit">Run SEC hunter</button>
+        </form>
+      </section>
+
+      <section className="product-section">
+        <div className="product-section-heading">
+          <div><p className="product-kicker"><span aria-hidden />SEC Hunt #4</p><h2>Run one completed founder IPO listing</h2></div>
+        </div>
+        <form action={runSecIpo} className="product-panel">
+          <label>
+            <span>Official SEC Form 424B4 filing or index URL</span>
+            <input name="ipo_prospectus_url" type="url" required placeholder="https://www.sec.gov/Archives/edgar/data/.../...-index.html" />
+          </label>
+          <label>
+            <span>Official SEC exchange CERT filing or index URL</span>
+            <input name="ipo_cert_url" type="url" required placeholder="https://www.sec.gov/Archives/edgar/data/.../...-index.html" />
+          </label>
+          <p>Deterministic final-prospectus, exchange-certification, initial-IPO, exact base-offering, founder ownership, Western-11, and dedupe gates. No paid API and no model call.</p>
+          <button type="submit">Run founder IPO hunter</button>
+        </form>
+      </section>
+
+      <section className="product-section">
+        <div className="product-section-heading">
+          <div><p className="product-kicker"><span aria-hidden />Dealer Hunt #3</p><h2>Run one completed Western dealer expansion</h2></div>
+        </div>
+        <form action={runDealerExpansion} className="product-panel">
+          <label>
+            <span>Official acquisition / opening URL</span>
+            <input name="dealer_event_url" type="url" required placeholder="https://official-company.example/news/completed-expansion" />
+          </label>
+          <label>
+            <span>Official ownership / dealer-principal URL</span>
+            <input name="dealer_ownership_url" type="url" required placeholder="https://official-company.example/team" />
+          </label>
+          <p>Deterministic source, completion, dealer category, ownership, Western-11, distributed-footprint, recency, and dedupe gates. No paid API and no model call.</p>
+          <button type="submit">Run dealer expansion hunter</button>
         </form>
       </section>
 
@@ -213,7 +404,12 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
                   <b>{candidate.person_name}</b>
                 </div>
                 <p>{candidate.company_name ?? "Company unknown"}{candidate.role ? ` · ${candidate.role}` : ""}</p>
-                <p>{candidate.trigger_summary} · {candidate.source_hunt_key === "sec-8k-western-founder-mna-100m" ? "Company transaction value" : "Event amount"}: {money(candidate.event_amount, candidate.event_currency)}</p>
+                <p>
+                  {candidate.trigger_summary}
+                  {candidate.source_hunt_key === "western-dealer-group-acquisition-expansion"
+                    ? ` · Operating footprint: ${candidate.business_footprint ?? "Not confirmed"}`
+                    : ` · ${leadEventAmountLabel(candidate.source_hunt_key)}: ${money(candidate.event_amount, candidate.event_currency)}`}
+                </p>
                 <small>{candidate.supra_lead_id} · {candidate.source_hunt_label}</small>
 
                 <form action={action} className="product-panel">

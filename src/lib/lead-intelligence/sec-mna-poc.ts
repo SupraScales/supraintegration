@@ -1,12 +1,26 @@
 import "server-only";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireInternalAdmin } from "@/lib/auth";
 import { requireHermesClient } from "@/lib/hermes";
+import { fetchSecText, isSecTransportError } from "@/lib/lead-intelligence/sec-fetch";
 import { fetchAndParseSecMna } from "@/lib/lead-intelligence/sec-mna";
 import { buildSecMnaCandidateDraft, type SecMnaGateReason } from "@/lib/lead-intelligence/sec-mna-parser";
 
 export const SEC_MNA_HUNT_KEY = "sec-8k-western-founder-mna-100m";
 const HUNT_LABEL = "$100M+ Western Founder M&A Completions";
+const HUNT_CONFIGURATION = {
+  source: "sec_form_8k",
+  sec_item: "2.01",
+  minimum_company_transaction_usd: 100_000_000,
+  completion_required: true,
+  operating_company_required: true,
+  founder_or_owner_required: true,
+  economic_connection_required: true,
+  western11_required: true,
+  ingest: "official_sec_url",
+  model_policy: "deterministic_only",
+};
 
 type GateReason =
   | "raw_signal_seen"
@@ -21,6 +35,19 @@ export type SecMnaHunterResult =
   | { outcome: "candidate_created" | "duplicate"; candidateId: string; recommendation: "whale" | "good"; amount: number }
   | { outcome: "rejected"; reason: string; amount: number };
 
+type SecMnaExecutionInput = {
+  supabase: SupabaseClient;
+  organizationId: string;
+  huntId: string;
+  runId: string;
+  actorUserId: string | null;
+  filingUrl: string;
+  adapter: "form8k_item201_manual" | "form8k_item201_system";
+  finalizeRun: boolean;
+  retryTransportFailures: boolean;
+  secFetcher?: typeof fetchSecText;
+};
+
 function parserFailure(error: unknown) {
   const message = error instanceof Error ? error.message : "SEC Form 8-K could not be parsed.";
   return {
@@ -29,43 +56,75 @@ function parserFailure(error: unknown) {
   };
 }
 
-export async function runSecMnaHunter(clientId: string, filingUrl: string): Promise<SecMnaHunterResult> {
-  const access = await requireInternalAdmin();
-  const { supabase } = await requireHermesClient(clientId);
+export async function ensureSecMnaHunt(
+  supabase: SupabaseClient,
+  organizationId: string,
+  actorUserId: string | null,
+) {
+  const { data: existing, error: lookupError } = await supabase
+    .from("lead_hunts")
+    .select("id, enabled")
+    .eq("organization_id", organizationId)
+    .eq("hunt_key", SEC_MNA_HUNT_KEY)
+    .maybeSingle();
+  if (lookupError) throw new Error("SEC M&A hunt lookup failed.");
+  if (existing) return existing as { id: string; enabled: boolean };
 
-  const { data: hunt, error: huntError } = await supabase.from("lead_hunts").upsert({
-    organization_id: clientId,
+  const { data: created, error: createError } = await supabase.from("lead_hunts").insert({
+    organization_id: organizationId,
     hunt_key: SEC_MNA_HUNT_KEY,
     label: HUNT_LABEL,
     priority: "p0",
     enabled: true,
-    configuration: {
-      source: "sec_form_8k",
-      sec_item: "2.01",
-      minimum_company_transaction_usd: 100_000_000,
-      completion_required: true,
-      operating_company_required: true,
-      founder_or_owner_required: true,
-      economic_connection_required: true,
-      western11_required: true,
-      ingest: "manual_official_sec_url",
-      model_policy: "deterministic_only",
-    },
-    updated_by: access.user.id,
-  }, { onConflict: "organization_id,hunt_key" }).select("id").single();
-  if (huntError || !hunt) throw new Error("SEC M&A hunt could not be initialized.");
-  const huntId = hunt.id;
+    configuration: HUNT_CONFIGURATION,
+    created_by: actorUserId,
+    updated_by: actorUserId,
+  }).select("id, enabled").single();
+  if (createError || !created) throw new Error("SEC M&A hunt could not be initialized.");
+  return created as { id: string; enabled: boolean };
+}
+
+export async function runSecMnaHunter(clientId: string, filingUrl: string): Promise<SecMnaHunterResult> {
+  const access = await requireInternalAdmin();
+  const { supabase } = await requireHermesClient(clientId);
+  const hunt = await ensureSecMnaHunt(supabase, clientId, access.user.id);
 
   const { data: run, error: runError } = await supabase.from("lead_hunt_runs").insert({
     organization_id: clientId,
-    hunt_id: huntId,
+    hunt_id: hunt.id,
     status: "running",
     trigger_kind: "manual",
     started_at: new Date().toISOString(),
     created_by: access.user.id,
   }).select("id").single();
   if (runError || !run) throw new Error("SEC M&A hunt run could not be created.");
-  const runId = run.id;
+
+  return executeSecMnaHunter({
+    supabase,
+    organizationId: clientId,
+    huntId: hunt.id,
+    runId: run.id,
+    actorUserId: access.user.id,
+    filingUrl,
+    adapter: "form8k_item201_manual",
+    finalizeRun: true,
+    retryTransportFailures: false,
+  });
+}
+
+export async function executeSecMnaHunter(input: SecMnaExecutionInput): Promise<SecMnaHunterResult> {
+  const {
+    supabase,
+    organizationId,
+    huntId,
+    runId,
+    actorUserId,
+    filingUrl,
+    adapter,
+    finalizeRun,
+    retryTransportFailures,
+    secFetcher,
+  } = input;
 
   async function recordGate(input: {
     kind: GateKind;
@@ -75,7 +134,7 @@ export async function runSecMnaHunter(clientId: string, filingUrl: string): Prom
     evidence?: Record<string, unknown>;
   }) {
     const { error } = await supabase.from("lead_gate_events").insert({
-      organization_id: clientId,
+      organization_id: organizationId,
       hunt_id: huntId,
       hunt_run_id: runId,
       signal_id: input.signalId ?? null,
@@ -92,6 +151,7 @@ export async function runSecMnaHunter(clientId: string, filingUrl: string): Prom
   }
 
   async function completeRun(summary: Record<string, unknown>) {
+    if (!finalizeRun) return;
     const { error } = await supabase.from("lead_hunt_runs").update({
       status: "completed",
       completed_at: new Date().toISOString(),
@@ -102,7 +162,7 @@ export async function runSecMnaHunter(clientId: string, filingUrl: string): Prom
         paid_vendor_usage: 0,
         external_cost: 0,
       },
-    }).eq("id", runId).eq("organization_id", clientId);
+    }).eq("id", runId).eq("organization_id", organizationId);
     if (error) throw new Error("SEC M&A run summary could not be stored.");
   }
 
@@ -120,8 +180,9 @@ export async function runSecMnaHunter(clientId: string, filingUrl: string): Prom
   try {
     let parsed;
     try {
-      parsed = await fetchAndParseSecMna(filingUrl);
+      parsed = await fetchAndParseSecMna(filingUrl, secFetcher);
     } catch (error) {
+      if (retryTransportFailures && isSecTransportError(error)) throw error;
       const failure = parserFailure(error);
       await recordGate({
         kind: "rejection",
@@ -153,7 +214,7 @@ export async function runSecMnaHunter(clientId: string, filingUrl: string): Prom
       candidate_event_key: parsed.candidateEventKey,
     };
     const { data: signal, error: signalError } = await supabase.from("lead_signals").insert({
-      organization_id: clientId,
+      organization_id: organizationId,
       hunt_id: huntId,
       hunt_run_id: runId,
       source_type: "sec_form_8k",
@@ -209,7 +270,7 @@ export async function runSecMnaHunter(clientId: string, filingUrl: string): Prom
     const { data: existing, error: existingError } = await supabase
       .from("lead_candidate_private_details")
       .select("candidate_id")
-      .eq("organization_id", clientId)
+      .eq("organization_id", organizationId)
       .eq("dedupe_key", draft.dedupeKey)
       .maybeSingle();
     if (existingError) throw new Error("SEC M&A dedupe lookup failed.");
@@ -241,7 +302,7 @@ export async function runSecMnaHunter(clientId: string, filingUrl: string): Prom
     const companyToken = draft.companyName.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12).toUpperCase();
     const supraLeadId = `MNA-${companyToken}-${draft.eventDate.replaceAll("-", "")}-${personToken}`;
     const { data: candidate, error: candidateError } = await supabase.from("lead_candidates").insert({
-      organization_id: clientId,
+      organization_id: organizationId,
       supra_lead_id: supraLeadId,
       source_hunt_key: SEC_MNA_HUNT_KEY,
       source_hunt_label: HUNT_LABEL,
@@ -266,14 +327,14 @@ export async function runSecMnaHunter(clientId: string, filingUrl: string): Prom
       likely_product_fit: draft.likelyProductFit,
       status: "qualified",
       publication_state: "unpublished",
-      created_by: access.user.id,
-      updated_by: access.user.id,
+      created_by: actorUserId,
+      updated_by: actorUserId,
     }).select("id").single();
     if (candidateError || !candidate) throw new Error("SEC M&A candidate could not be stored.");
 
     const { error: privateError } = await supabase.from("lead_candidate_private_details").insert({
       candidate_id: candidate.id,
-      organization_id: clientId,
+      organization_id: organizationId,
       hunt_id: huntId,
       signal_id: signal.id,
       dedupe_key: draft.dedupeKey,
@@ -281,7 +342,7 @@ export async function runSecMnaHunter(clientId: string, filingUrl: string): Prom
       internal_reasoning: "Deterministic SEC Form 8-K / Item 2.01 qualification. Company transaction value is not personal proceeds. No model or paid vendor was used.",
       source_orchestration: {
         source: "sec.gov",
-        adapter: "form8k_item201_manual",
+        adapter,
         accession_number: parsed.accessionNumber,
         signal_key: parsed.signalKey,
         candidate_event_key: draft.dedupeKey,
@@ -305,13 +366,13 @@ export async function runSecMnaHunter(clientId: string, filingUrl: string): Prom
         personal_proceeds: "unknown_not_inferred",
       },
       vendor_payloads: {},
-      updated_by: access.user.id,
+      updated_by: actorUserId,
     });
     if (privateError) throw new Error("SEC M&A candidate private details could not be stored.");
 
     const { error: evidenceError } = await supabase.from("lead_evidence").insert(
       draft.clientEvidence.map((item) => ({
-        organization_id: clientId,
+        organization_id: organizationId,
         candidate_id: candidate.id,
         label: item.label,
         source_url: item.sourceUrl,
@@ -319,7 +380,7 @@ export async function runSecMnaHunter(clientId: string, filingUrl: string): Prom
         summary: item.summary,
         captured_at: new Date().toISOString(),
         client_visible: true,
-        created_by: access.user.id,
+        created_by: actorUserId,
       })),
     );
     if (evidenceError) throw new Error("SEC M&A evidence could not be stored.");
@@ -362,11 +423,13 @@ export async function runSecMnaHunter(clientId: string, filingUrl: string): Prom
       amount: draft.eventAmount,
     };
   } catch (error) {
-    await supabase.from("lead_hunt_runs").update({
-      status: "failed",
-      completed_at: new Date().toISOString(),
-      error: error instanceof Error ? error.message : "Unknown SEC M&A hunter error",
-    }).eq("id", runId).eq("organization_id", clientId);
+    if (finalizeRun) {
+      await supabase.from("lead_hunt_runs").update({
+        status: "failed",
+        completed_at: new Date().toISOString(),
+        error: error instanceof Error ? error.message : "Unknown SEC M&A hunter error",
+      }).eq("id", runId).eq("organization_id", organizationId);
+    }
     throw error;
   }
 }
