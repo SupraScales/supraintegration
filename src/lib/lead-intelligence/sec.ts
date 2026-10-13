@@ -1,14 +1,16 @@
 import "server-only";
 
+import { fetchSecText } from "@/lib/lead-intelligence/sec-fetch";
+
 const WESTERN_STATES = new Set([
   "WA", "OR", "CA", "NV", "ID", "MT", "WY", "UT", "CO", "AZ", "NM",
   "WASHINGTON", "OREGON", "CALIFORNIA", "NEVADA", "IDAHO", "MONTANA",
   "WYOMING", "UTAH", "COLORADO", "ARIZONA", "NEW MEXICO",
 ]);
 
-const SEC_USER_AGENT = "Supra Integration Lead Intelligence SupraScales@suprascales.com";
 const MINIMUM_SALE_CENTS = BigInt("500000000");
 const WHALE_SALE_CENTS = BigInt("2500000000");
+const FORM4_MAX_BYTES = 2 * 1024 * 1024;
 
 export type SecSaleTransaction = {
   date: string;
@@ -250,21 +252,21 @@ export function buildSecCandidateDraft(parsed: ParsedSecForm4): SecCandidateDraf
   };
 }
 
-export async function fetchAndParseSecForm4(filingUrl: string) {
+export async function fetchAndParseSecForm4(
+  filingUrl: string,
+  fetcher: typeof fetchSecText = fetchSecText,
+) {
   const url = new URL(filingUrl);
-  if (url.protocol !== "https:" || url.hostname !== "www.sec.gov") {
+  if (
+    url.protocol !== "https:"
+    || url.hostname !== "www.sec.gov"
+    || !url.pathname.startsWith("/Archives/edgar/data/")
+  ) {
     throw new Error("Only official https://www.sec.gov Form 4 URLs are accepted.");
   }
-
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": SEC_USER_AGENT,
-      "Accept-Encoding": "gzip, deflate",
-      Accept: "application/xml,text/xml;q=0.9,*/*;q=0.1",
-    },
-    cache: "no-store",
+  const xml = await fetcher(url.toString(), {
+    accept: "application/xml,text/xml,text/plain;q=0.9,*/*;q=0.1",
+    maxBytes: FORM4_MAX_BYTES,
   });
-  if (!response.ok) throw new Error(`SEC returned ${response.status} for the filing.`);
-  const xml = await response.text();
   return parseSecForm4Xml(xml, filingUrl);
 }

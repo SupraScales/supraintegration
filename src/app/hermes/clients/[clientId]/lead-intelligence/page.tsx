@@ -1,6 +1,6 @@
 import { ProductPageHeader, StatusBadge } from "@/components/product-shell";
 import { getHermesLeadIntelligence } from "@/lib/lead-intelligence";
-import { runDealerExpansionAction, runSecIpoAction, runSecIpoDiscoveryNowAction, runSecMnaAction, runSecMnaDiscoveryNowAction, runSecPocAction, updateLeadCandidateState } from "@/app/hermes/clients/[clientId]/lead-intelligence/actions";
+import { runDealerExpansionAction, runSecForm4DiscoveryNowAction, runSecIpoAction, runSecIpoDiscoveryNowAction, runSecMnaAction, runSecMnaDiscoveryNowAction, runSecPocAction, updateLeadCandidateState } from "@/app/hermes/clients/[clientId]/lead-intelligence/actions";
 import { leadEventAmountLabel } from "@/lib/lead-intelligence/client-presentation";
 
 function pretty(value: unknown) {
@@ -56,22 +56,37 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
   const runDealerExpansion = runDealerExpansionAction.bind(null, clientId);
   const runSecIpo = runSecIpoAction.bind(null, clientId);
   const runHunt2DiscoveryNow = runSecMnaDiscoveryNowAction.bind(null, clientId);
+  const runHunt1DiscoveryNow = runSecForm4DiscoveryNowAction.bind(null, clientId);
   const runHunt4DiscoveryNow = runSecIpoDiscoveryNowAction.bind(null, clientId);
   const discoveryConfigured = process.env.SKYSHARE_DISCOVERY_ORGANIZATION_ID?.trim() === clientId;
+  const hunt1DiscoveryEnabled = discoveryConfigured
+    && process.env.SKYSHARE_DISCOVERY_HUNT1_ENABLED?.trim().toLowerCase() === "true";
   const hunt2DiscoveryEnabled = discoveryConfigured
     && process.env.SKYSHARE_DISCOVERY_HUNT2_ENABLED?.trim().toLowerCase() === "true";
   const hunt4DiscoveryEnabled = discoveryConfigured
     && process.env.SKYSHARE_DISCOVERY_HUNT4_ENABLED?.trim().toLowerCase() === "true";
+  const hunt3DiscoveryEnabled = discoveryConfigured
+    && process.env.SKYSHARE_DISCOVERY_HUNT3_PUBLIC_WEB_ENABLED?.trim().toLowerCase() === "true";
+  const hunt1DiscoveryHunt = hunts.find((hunt) => hunt.hunt_key === "sec-insider-sale-5m");
   const hunt2DiscoveryHunt = hunts.find((hunt) => hunt.hunt_key === "sec-8k-western-founder-mna-100m");
+  const hunt3DiscoveryHunt = hunts.find((hunt) => hunt.hunt_key === "western-dealer-group-acquisition-expansion");
   const hunt4DiscoveryHunt = hunts.find((hunt) => hunt.hunt_key === "sec-western-founder-ipo-100m");
+  const hunt1DiscoveryRuns = runs.filter((run) => run.trigger_kind === "system" && run.hunt_id === hunt1DiscoveryHunt?.id);
   const hunt2DiscoveryRuns = runs.filter((run) => run.trigger_kind === "system" && run.hunt_id === hunt2DiscoveryHunt?.id);
+  const hunt3DiscoveryRuns = runs.filter((run) => run.trigger_kind === "system" && run.hunt_id === hunt3DiscoveryHunt?.id);
   const hunt4DiscoveryRuns = runs.filter((run) => run.trigger_kind === "system" && run.hunt_id === hunt4DiscoveryHunt?.id);
+  const lastHunt1Attempt = hunt1DiscoveryRuns[0];
+  const lastHunt1Success = hunt1DiscoveryRuns.find((run) => run.status === "completed");
   const lastHunt2Attempt = hunt2DiscoveryRuns[0];
   const lastHunt2Success = hunt2DiscoveryRuns.find((run) => run.status === "completed");
   const lastHunt4Attempt = hunt4DiscoveryRuns[0];
   const lastHunt4Success = hunt4DiscoveryRuns.find((run) => run.status === "completed");
+  const lastHunt3Attempt = hunt3DiscoveryRuns[0];
+  const lastHunt3Success = hunt3DiscoveryRuns.find((run) => run.status === "completed");
+  const hunt1DiscoveryItems = discoveryItems.filter((item) => item.hunt_id === hunt1DiscoveryHunt?.id);
   const hunt2DiscoveryItems = discoveryItems.filter((item) => item.hunt_id === hunt2DiscoveryHunt?.id);
   const hunt4DiscoveryItems = discoveryItems.filter((item) => item.hunt_id === hunt4DiscoveryHunt?.id);
+  const hunt3DiscoveryItems = discoveryItems.filter((item) => item.hunt_id === hunt3DiscoveryHunt?.id);
 
   return (
     <>
@@ -81,6 +96,31 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
         description={`Internal hunting, qualification, QA, and publication for ${client.name}. Raw signals, gate decisions, and private scoring stay inside Hermes.`}
         actions={<StatusBadge>{candidates.length} candidates</StatusBadge>}
       />
+
+      <section className="product-section">
+        <div className="product-section-heading">
+          <div><p className="product-kicker"><span aria-hidden />Hunt #1 — Form 4 Discovery</p><h2>Daily insider-sale filing inbox</h2></div>
+          <StatusBadge>{hunt1DiscoveryEnabled ? "Enabled" : "Disabled"}</StatusBadge>
+        </div>
+        <div className="product-panel">
+          <p>The shared SEC snapshot discovers Form 4 accessions. Amendments remain audit support and cannot create a second candidate.</p>
+          {discoveryError ? <p>Discovery storage unavailable: {discoveryError}</p> : null}
+          {hunt1DiscoveryEnabled ? <form action={runHunt1DiscoveryNow}><button type="submit">Run Hunt #1 discovery now</button></form> : null}
+          <p>Last attempt: {lastHunt1Attempt ? `${time(String(lastHunt1Attempt.started_at ?? lastHunt1Attempt.created_at))} · ${String(lastHunt1Attempt.status)}` : "Never"}</p>
+          <p>Last success: {lastHunt1Success ? time(String(lastHunt1Success.completed_at)) : "Never"}</p>
+          {lastHunt1Attempt ? <details><summary>Latest discovery counts</summary><pre>{pretty(lastHunt1Attempt.summary)}</pre></details> : null}
+          <p>{hunt1DiscoveryItems.length} recent inbox items</p>
+          <ul>
+            {hunt1DiscoveryItems.slice(0, 10).map((item) => (
+              <li key={item.id}>
+                <a href={item.source_url} target="_blank" rel="noreferrer">{item.accession_number}</a>
+                {` · ${item.form_type} · ${item.status} · attempts ${item.attempt_count}`}
+                {item.last_error_code ? ` · ${item.last_error_code}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
 
       <section className="product-section">
         <div className="product-section-heading">
@@ -100,6 +140,29 @@ export default async function HermesLeadIntelligencePage({ params }: { params: P
               <li key={item.id}>
                 <a href={item.source_url} target="_blank" rel="noreferrer">{item.accession_number}</a>
                 {` · ${item.form_type} · ${item.status} · attempts ${item.attempt_count}`}
+                {item.last_error_code ? ` · ${item.last_error_code}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section className="product-section">
+        <div className="product-section-heading">
+          <div><p className="product-kicker"><span aria-hidden />Hunt #3 — Public-Web Automation</p><h2>Scheduled dealer evidence inbox</h2></div>
+          <StatusBadge>{hunt3DiscoveryEnabled ? "Enabled" : "Disabled"}</StatusBadge>
+        </div>
+        <div className="product-panel">
+          <p>The bounded VPS worker writes normalized official pages to the shared inbox before the existing deterministic Hunt #3 processor pairs evidence.</p>
+          <p>Last attempt: {lastHunt3Attempt ? `${time(String(lastHunt3Attempt.started_at ?? lastHunt3Attempt.created_at))} · ${String(lastHunt3Attempt.status)}` : "Never"}</p>
+          <p>Last success: {lastHunt3Success ? time(String(lastHunt3Success.completed_at)) : "Never"}</p>
+          {lastHunt3Attempt ? <details><summary>Latest discovery counts</summary><pre>{pretty(lastHunt3Attempt.summary)}</pre></details> : null}
+          <p>{hunt3DiscoveryItems.length} recent inbox items</p>
+          <ul>
+            {hunt3DiscoveryItems.slice(0, 10).map((item) => (
+              <li key={item.id}>
+                <a href={item.source_url} target="_blank" rel="noreferrer">{item.source_key}</a>
+                {` · ${item.status} · attempts ${item.attempt_count}`}
                 {item.last_error_code ? ` · ${item.last_error_code}` : ""}
               </li>
             ))}
