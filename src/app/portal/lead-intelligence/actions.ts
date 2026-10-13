@@ -11,7 +11,7 @@ const decisionSchema = z.discriminatedUnion("humanDecision", [
   z.object({ humanDecision: z.literal("override"), humanOverride: z.enum(["whale", "good", "bad"]) }),
 ]);
 
-export async function saveLeadDecision(candidateId: string, formData: FormData) {
+export async function saveLeadDecision(candidateId: string, leadReference: string, formData: FormData) {
   const rawDecision = formData.get("human_decision");
   const rawOverride = formData.get("human_override");
   const parsed = decisionSchema.safeParse({
@@ -38,5 +38,6 @@ export async function saveLeadDecision(candidateId: string, formData: FormData) 
   if (error) throw new Error("Lead decision could not be saved.");
 
   revalidatePath("/portal/lead-intelligence");
-  revalidatePath(`/portal/lead-intelligence/${candidateId}`);
+  revalidatePath(`/portal/lead-intelligence/${leadReference}`);
+  revalidatePath(`/hermes/clients/${access.organization.id}/lead-intelligence`);
 }

@@ -35,8 +35,8 @@ test("real Microsoft Form 4 deterministically clears $5M and becomes a whale", (
   assert.equal(parsed.reportingOwnerState, "WASHINGTON");
   assert.equal(parsed.westernRelevant, true);
   assert.equal(parsed.totalShares, 86525);
-  assert.equal(parsed.totalSaleCents, BigInt("4338853241"));
-  assert.equal(draft.eventAmount, 43_388_532.41);
+  assert.equal(parsed.totalSaleCents, BigInt("4338853240"));
+  assert.equal(draft.eventAmount, 43_388_532.40);
   assert.equal(draft.systemRecommendation, "whale");
   assert.equal(draft.deterministicChecks.model_calls, 0);
 });
@@ -44,4 +44,17 @@ test("real Microsoft Form 4 deterministically clears $5M and becomes a whale", (
 test("non-sale transaction codes are rejected", () => {
   const xml = REAL_SEC_FORM4.replaceAll("<transactionCode>S</transactionCode>", "<transactionCode>F</transactionCode>");
   assert.throws(() => parseSecForm4Xml(xml, SOURCE_URL), /No open-market sale transactions/);
+});
+
+test("manual XML and automated submission adapters preserve candidate identity and scoring", () => {
+  const manual = buildSecCandidateDraft(parseSecForm4Xml(REAL_SEC_FORM4, SOURCE_URL));
+  const automated = buildSecCandidateDraft(parseSecForm4Xml(
+    REAL_SEC_FORM4,
+    "https://www.sec.gov/Archives/edgar/data/789019/000078901926000161/0000789019-26-000161.txt",
+  ));
+
+  assert.deepEqual(automated, manual);
+  assert.equal(automated.dedupeKey, "sec-form4:0000789019:0001513142:2026-09-01:4338853240");
+  assert.equal(automated.systemRecommendation, "whale");
+  assert.equal(automated.deterministicChecks.model_calls, 0);
 });

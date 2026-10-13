@@ -1,5 +1,5 @@
-// RLS matrix for SkyShare Lead Intelligence Slice 1 + SEC POC review model.
-// Requires the Hermes foundation and both Lead Intelligence migrations on staging/dev.
+// RLS matrix for SkyShare Lead Intelligence + SEC POC + internal gate ledger.
+// Requires the Hermes foundation and all Lead Intelligence migrations on staging/dev.
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { readConfig } from "./config.mjs";
@@ -42,6 +42,47 @@ if (!readConfig().ok) {
     const svc = serviceClient();
     const huntA = await insert(svc, "lead_hunts", { organization_id: ctx.orgIds.clientA, hunt_key: "test-liquidity", label: "Test liquidity event", priority: "p0", configuration: { private_threshold: 5000000 } });
     const huntB = await insert(svc, "lead_hunts", { organization_id: ctx.orgIds.clientB, hunt_key: "test-dealer", label: "Test dealer expansion", priority: "p0" });
+    const runA = await insert(svc, "lead_hunt_runs", {
+      organization_id: ctx.orgIds.clientA,
+      hunt_id: huntA.id,
+      status: "completed",
+      trigger_kind: "manual",
+      started_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
+    });
+    const discoveryItem = await insert(svc, "lead_discovery_items", {
+      organization_id: ctx.orgIds.clientA,
+      hunt_id: huntA.id,
+      hunt_run_id: runA.id,
+      source_key: "sec-8k:0001193125-25-060947",
+      source_type: "sec_daily_index",
+      source_url: "https://www.sec.gov/Archives/edgar/data/1766363/0001193125-25-060947.txt",
+      form_type: "8-K",
+      accession_number: "0001193125-25-060947",
+      issuer_cik: "1766363",
+      filing_date: "2025-03-24",
+      status: "completed",
+      processed_at: new Date().toISOString(),
+      metadata: { parser_private: true },
+    });
+    const publishedSignalA = await insert(svc, "lead_signals", {
+      organization_id: ctx.orgIds.clientA,
+      hunt_id: huntA.id,
+      hunt_run_id: runA.id,
+      source_type: "sec_form_4",
+      source_record_id: "test-published-signal",
+      event_type: "insider_stock_sale",
+      title: "Published test SEC signal",
+    });
+    const unpublishedSignalA = await insert(svc, "lead_signals", {
+      organization_id: ctx.orgIds.clientA,
+      hunt_id: huntA.id,
+      hunt_run_id: runA.id,
+      source_type: "sec_form_4",
+      source_record_id: "test-unpublished-signal",
+      event_type: "insider_stock_sale",
+      title: "Unpublished test SEC signal",
+    });
 
     const publishedA = await insert(svc, "lead_candidates", {
       organization_id: ctx.orgIds.clientA, supra_lead_id: "TEST-A-PUBLISHED", source_hunt_key: "test-liquidity", source_hunt_label: "Test liquidity event",
@@ -58,11 +99,21 @@ if (!readConfig().ok) {
       system_recommendation: "good", publication_state: "published", published_at: new Date().toISOString(), published_by: ctx.userIds.internalAdmin,
     });
 
-    await insert(svc, "lead_candidate_private_details", { candidate_id: publishedA.id, organization_id: ctx.orgIds.clientA, hunt_id: huntA.id, dedupe_key: "private-dedupe-key", scoring_weights: { secret_weight: 99 }, prompt_material: { private_prompt: true }, vendor_payloads: { secret_vendor_payload: true } }, "candidate_id");
+    await insert(svc, "lead_candidate_private_details", { candidate_id: publishedA.id, organization_id: ctx.orgIds.clientA, hunt_id: huntA.id, signal_id: publishedSignalA.id, dedupe_key: "private-dedupe-key", scoring_weights: { secret_weight: 99 }, prompt_material: { private_prompt: true }, vendor_payloads: { secret_vendor_payload: true } }, "candidate_id");
+    await insert(svc, "lead_candidate_private_details", { candidate_id: unpublishedA.id, organization_id: ctx.orgIds.clientA, hunt_id: huntA.id, signal_id: unpublishedSignalA.id, dedupe_key: "private-unpublished-dedupe-key" }, "candidate_id");
     await insert(svc, "lead_evidence", { organization_id: ctx.orgIds.clientA, candidate_id: publishedA.id, label: "Client-safe source", summary: "Visible evidence", client_visible: true });
     await insert(svc, "lead_evidence", { organization_id: ctx.orgIds.clientA, candidate_id: publishedA.id, label: "Internal-only source", summary: "Hidden evidence", client_visible: false });
     await insert(svc, "lead_evidence", { organization_id: ctx.orgIds.clientA, candidate_id: unpublishedA.id, label: "Unpublished source", summary: "Must stay hidden", client_visible: true });
-    ctx.ids = { publishedA: publishedA.id, unpublishedA: unpublishedA.id, publishedB: publishedB.id };
+    ctx.ids = {
+      huntA: huntA.id,
+      runA: runA.id,
+      discoveryItem: discoveryItem.id,
+      publishedSignalA: publishedSignalA.id,
+      unpublishedSignalA: unpublishedSignalA.id,
+      publishedA: publishedA.id,
+      unpublishedA: unpublishedA.id,
+      publishedB: publishedB.id,
+    };
   });
 
   after(async () => { await deleteSeed(); });
@@ -79,10 +130,55 @@ if (!readConfig().ok) {
     denied(await read(ctx.clients.clientAAdmin, "lead_candidates", (q) => q.eq("id", ctx.ids.publishedB)), "cross-tenant lead leaked");
   });
 
-  test("client cannot read private candidate details, hunts, signals, runs, or vendor costs", async () => {
-    for (const table of ["lead_candidate_private_details", "lead_hunts", "lead_signals", "lead_hunt_runs", "lead_vendor_usage"]) {
+  test("client cannot read private details, discovery inbox, hunts, runs, gate ledger, or vendor costs", async () => {
+    for (const table of ["lead_candidate_private_details", "lead_discovery_items", "lead_hunts", "lead_signals", "lead_hunt_runs", "lead_gate_events", "lead_vendor_usage"]) {
       denied(await read(ctx.clients.clientAAdmin, table), `${table} leaked`);
     }
+  });
+
+  test("authenticated users cannot write discovery inbox while service role can", async () => {
+    const attemptedInsert = await ctx.clients.internalAdmin.from("lead_discovery_items").insert({
+      organization_id: ctx.orgIds.clientA,
+      hunt_id: ctx.ids.huntA,
+      source_key: "sec-8k:0001193125-25-060948",
+      source_type: "sec_daily_index",
+      source_url: "https://www.sec.gov/Archives/edgar/data/1766363/0001193125-25-060948.txt",
+      form_type: "8-K",
+      accession_number: "0001193125-25-060948",
+      issuer_cik: "1766363",
+      filing_date: "2025-03-24",
+    }).select("*");
+    assert.ok(attemptedInsert.error || attemptedInsert.data.length === 0);
+
+    const attemptedUpdate = await ctx.clients.internalAdmin
+      .from("lead_discovery_items")
+      .update({ last_error_code: "forged_authenticated_write" })
+      .eq("id", ctx.ids.discoveryItem)
+      .select("*");
+    assert.ok(attemptedUpdate.error || attemptedUpdate.data.length === 0);
+
+    const attemptedDelete = await ctx.clients.internalAdmin
+      .from("lead_discovery_items")
+      .delete()
+      .eq("id", ctx.ids.discoveryItem)
+      .select("*");
+    assert.ok(attemptedDelete.error || attemptedDelete.data.length === 0);
+
+    const svc = serviceClient();
+    const serviceUpdate = await svc
+      .from("lead_discovery_items")
+      .update({ last_error_code: "service_role_write_probe" })
+      .eq("id", ctx.ids.discoveryItem)
+      .select("id, last_error_code")
+      .single();
+    assert.equal(serviceUpdate.error, null);
+    assert.equal(serviceUpdate.data.last_error_code, "service_role_write_probe");
+
+    const serviceReset = await svc
+      .from("lead_discovery_items")
+      .update({ last_error_code: null })
+      .eq("id", ctx.ids.discoveryItem);
+    assert.equal(serviceReset.error, null);
   });
 
   test("client sees only client-safe evidence for a published lead", async () => {
@@ -92,19 +188,27 @@ if (!readConfig().ok) {
     assert.equal(result.data[0].label, "Client-safe source");
   });
 
-  test("client can approve without overwriting system recommendation", async () => {
+  test("client can approve without overwriting system recommendation and approval enters ledger", async () => {
     const create = await ctx.clients.clientAAdmin.from("lead_feedback").insert({ organization_id: ctx.orgIds.clientA, candidate_id: ctx.ids.publishedA, user_id: ctx.userIds.clientAAdmin, human_decision: "approve" }).select("*");
     assert.equal(create.error, null);
     const lead = await read(ctx.clients.clientAAdmin, "lead_candidates", (q) => q.eq("id", ctx.ids.publishedA));
     assert.equal(lead.data[0].system_recommendation, "whale");
+    const gates = await read(ctx.clients.internalMember, "lead_gate_events", (q) => q.eq("candidate_id", ctx.ids.publishedA).eq("reason_code", "client_approved"));
+    assert.equal(gates.error, null);
+    assert.equal(gates.data.length, 1);
+    assert.equal(gates.data[0].hunt_run_id, ctx.ids.runA);
   });
 
-  test("client can override recommendation and original remains intact", async () => {
+  test("client can override recommendation and override enters ledger while original remains intact", async () => {
     const update = await ctx.clients.clientAAdmin.from("lead_feedback").upsert({ organization_id: ctx.orgIds.clientA, candidate_id: ctx.ids.publishedA, user_id: ctx.userIds.clientAAdmin, human_decision: "override", human_override: "good" }, { onConflict: "candidate_id,user_id" }).select("*");
     assert.equal(update.error, null);
     assert.equal(update.data[0].human_override, "good");
     const lead = await read(ctx.clients.clientAAdmin, "lead_candidates", (q) => q.eq("id", ctx.ids.publishedA));
     assert.equal(lead.data[0].system_recommendation, "whale");
+    const gates = await read(ctx.clients.internalMember, "lead_gate_events", (q) => q.eq("candidate_id", ctx.ids.publishedA).eq("reason_code", "client_overridden"));
+    assert.equal(gates.error, null);
+    assert.equal(gates.data.length, 1);
+    assert.equal(gates.data[0].internal_evidence.human_override, "good");
   });
 
   test("override requires an explicit replacement recommendation", async () => {
@@ -127,12 +231,27 @@ if (!readConfig().ok) {
   test("internal member can read complete records and private details", async () => {
     const leads = await read(ctx.clients.internalMember, "lead_candidates");
     const privateDetails = await read(ctx.clients.internalMember, "lead_candidate_private_details");
+    const discoveryItems = await read(ctx.clients.internalMember, "lead_discovery_items");
+    const gates = await read(ctx.clients.internalMember, "lead_gate_events");
     assert.equal(leads.error, null); assert.ok(leads.data.length >= 3);
-    assert.equal(privateDetails.error, null); assert.equal(privateDetails.data[0].dedupe_key, "private-dedupe-key");
+    assert.equal(privateDetails.error, null); assert.ok(privateDetails.data.some((row) => row.dedupe_key === "private-dedupe-key"));
+    assert.equal(discoveryItems.error, null); assert.ok(discoveryItems.data.some((row) => row.source_key === "sec-8k:0001193125-25-060947"));
+    assert.equal(gates.error, null);
   });
 
-  test("internal admin can publish candidate with system recommendation", async () => {
+  test("internal admin can publish candidate and publication enters originating run ledger", async () => {
     const result = await ctx.clients.internalAdmin.from("lead_candidates").update({ status: "qualified", publication_state: "published", published_at: new Date().toISOString(), published_by: ctx.userIds.internalAdmin }).eq("id", ctx.ids.unpublishedA).select("*");
     assert.equal(result.error, null); assert.equal(result.data.length, 1); assert.equal(result.data[0].publication_state, "published");
+    const gates = await read(ctx.clients.internalMember, "lead_gate_events", (q) => q.eq("candidate_id", ctx.ids.unpublishedA).eq("reason_code", "published"));
+    assert.equal(gates.error, null);
+    assert.equal(gates.data.length, 1);
+    assert.equal(gates.data[0].hunt_run_id, ctx.ids.runA);
+  });
+
+  test("gate ledger is append-only for authenticated users", async () => {
+    const update = await ctx.clients.internalAdmin.from("lead_gate_events").update({ reason_code: "qualified" }).eq("candidate_id", ctx.ids.unpublishedA).select("*");
+    assert.ok(update.error || update.data.length === 0);
+    const remove = await ctx.clients.internalAdmin.from("lead_gate_events").delete().eq("candidate_id", ctx.ids.unpublishedA).select("*");
+    assert.ok(remove.error || remove.data.length === 0);
   });
 }
