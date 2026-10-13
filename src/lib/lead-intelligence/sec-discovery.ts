@@ -4,6 +4,7 @@ import { fetchSecText, isSecTransportError } from "@/lib/lead-intelligence/sec-f
 import {
   hasItem201Prefilter,
   parseSecDailyMasterIndex,
+  parseSharedSecDailyMasterIndex,
   secDailyIndexUrl,
 } from "@/lib/lead-intelligence/sec-discovery-parser";
 
@@ -11,6 +12,7 @@ export {
   completedSecIndexDates,
   hasItem201Prefilter,
   parseSecDailyMasterIndex,
+  parseSharedSecDailyMasterIndex,
   rollingUtcDates,
   secDailyIndexUrl,
 } from "@/lib/lead-intelligence/sec-discovery-parser";
@@ -24,14 +26,22 @@ const SUBMISSION_PREFILTER_MAX_BYTES = 2 * 1024 * 1024;
 
 type SecTextFetcher = typeof fetchSecText;
 
-export async function fetchSecDailyIndex(date: string, fetcher: SecTextFetcher = fetchSecText) {
+export async function fetchSecDailyIndex(
+  date: string,
+  fetcher: SecTextFetcher = fetchSecText,
+  includeAllDiscoveryForms = false,
+) {
   const url = secDailyIndexUrl(date);
   try {
     const text = await fetcher(url, {
       accept: "text/plain,*/*;q=0.1",
       maxBytes: DAILY_INDEX_MAX_BYTES,
     });
-    return { url, missing: false as const, parsed: parseSecDailyMasterIndex(text) };
+    return {
+      url,
+      missing: false as const,
+      parsed: includeAllDiscoveryForms ? parseSharedSecDailyMasterIndex(text) : parseSecDailyMasterIndex(text),
+    };
   } catch (error) {
     if (isSecTransportError(error) && error.code === "not_found") {
       return { url, missing: true as const, parsed: null };

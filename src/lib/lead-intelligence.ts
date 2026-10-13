@@ -5,6 +5,7 @@ import { requireEnabledPortalModule } from "@/lib/portal";
 import { requireHermesClient } from "@/lib/hermes";
 import { createClient } from "@/lib/supabase/server";
 import { summarizeHuntRuns, type LeadGateEvent } from "@/lib/lead-intelligence-run-summary";
+import { createClientLeadReference } from "@/lib/lead-intelligence/client-presentation";
 
 export type LeadRecommendation = "whale" | "good" | "bad";
 export type HumanDecision = "approve" | "reject" | "override";
@@ -82,9 +83,10 @@ export type LeadPrivateDetails = {
 
 export type LeadDiscoveryItem = {
   id: string;
+  hunt_id: string;
   source_key: string;
   source_url: string;
-  form_type: "8-K" | "8-K/A";
+  form_type: "8-K" | "8-K/A" | "424B4" | "CERT";
   accession_number: string;
   filing_date: string;
   status: "pending" | "processing" | "completed" | "failed";
@@ -125,7 +127,7 @@ export async function getPortalLeadList() {
   };
 }
 
-export async function getPortalLeadDetail(leadId: string) {
+export async function getPortalLeadDetail(leadReference: string) {
   const { access } = await requireEnabledPortalModule("lead_intelligence");
   const supabase = await createClient();
   if (!supabase) notFound();
@@ -133,29 +135,29 @@ export async function getPortalLeadDetail(leadId: string) {
   const { data: candidateData } = await supabase
     .from("lead_candidates")
     .select(candidateSelect)
-    .eq("id", leadId)
-    .eq("organization_id", access.organization.id)
-    .maybeSingle();
-  if (!candidateData) notFound();
+    .eq("organization_id", access.organization.id);
+  const candidates = (candidateData ?? []) as LeadCandidate[];
+  const candidate = candidates.find((item) => createClientLeadReference(item) === leadReference);
+  if (!candidate) notFound();
 
   const [{ data: evidenceData }, { data: feedbackData }] = await Promise.all([
     supabase
       .from("lead_evidence")
       .select("id, candidate_id, label, source_url, evidence_type, summary, captured_at, client_visible")
-      .eq("candidate_id", leadId)
+      .eq("candidate_id", candidate.id)
       .eq("organization_id", access.organization.id)
       .order("created_at"),
     supabase
       .from("lead_feedback")
       .select(feedbackSelect)
-      .eq("candidate_id", leadId)
+      .eq("candidate_id", candidate.id)
       .eq("user_id", access.user.id)
       .maybeSingle(),
   ]);
 
   return {
     access,
-    candidate: candidateData as LeadCandidate,
+    candidate,
     evidence: (evidenceData ?? []) as LeadEvidence[],
     feedback: (feedbackData ?? null) as LeadFeedback | null,
   };
@@ -177,7 +179,7 @@ export async function getHermesLeadIntelligence(clientId: string) {
     supabase.from("lead_hunt_runs").select("id, hunt_id, status, trigger_kind, summary, error, started_at, completed_at, created_at").eq("organization_id", clientId).order("created_at", { ascending: false }).limit(50),
     supabase.from("lead_gate_events").select("id, hunt_id, hunt_run_id, signal_id, candidate_id, gate_kind, reason_code, source_url, internal_evidence, model_calls, estimated_input_tokens, estimated_output_tokens, created_at").eq("organization_id", clientId).order("created_at", { ascending: false }).limit(1000),
     supabase.from("lead_vendor_usage").select("id, hunt_id, hunt_run_id, candidate_id, provider, model, operation, units, input_tokens, output_tokens, total_cost, currency, occurred_at").eq("organization_id", clientId).order("occurred_at", { ascending: false }).limit(1000),
-    supabase.from("lead_discovery_items").select("id, source_key, source_url, form_type, accession_number, filing_date, status, attempt_count, next_attempt_at, last_error_code, metadata, created_at, updated_at").eq("organization_id", clientId).order("created_at", { ascending: false }).limit(50),
+    supabase.from("lead_discovery_items").select("id, hunt_id, source_key, source_url, form_type, accession_number, filing_date, status, attempt_count, next_attempt_at, last_error_code, metadata, created_at, updated_at").eq("organization_id", clientId).order("created_at", { ascending: false }).limit(100),
   ]);
 
   const candidates = (candidateResult.data ?? []) as LeadCandidate[];
