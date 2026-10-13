@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import { ProductShell } from "@/components/product-shell";
 import { getPortalContext, portalModuleCatalog, portalModulePath } from "@/lib/portal";
+
+export const metadata: Metadata = {
+  title: "SkyShare Acquisition Intelligence | Supra Integration",
+  description: "SkyShare's client portal for reviewing source-backed acquisition opportunities.",
+};
 
 export default async function PortalLayout({
   children,
