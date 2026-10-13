@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { signOutAction } from "@/app/(auth)/actions";
+import { formatPortalOrganizationName } from "@/lib/portal-presentation";
 
 export type ProductNavItem = {
   href: string;
@@ -21,16 +22,19 @@ export function ProductShell({
   navigation: ProductNavItem[];
   children: React.ReactNode;
 }) {
+  const portalOrganizationName = formatPortalOrganizationName(organizationName);
+  const displayOrganizationName = audience === "portal" ? portalOrganizationName : organizationName;
+
   return (
-    <div className="product-app">
+    <div className={`product-app product-app-${audience}`}>
       <header className="product-topbar">
         <Link href={audience === "hermes" ? "/hermes/clients" : "/portal/overview"} className="product-logo">
           <span aria-hidden />
-          <b>SUPRA</b>
-          <strong>{audience === "hermes" ? "HERMES" : "PORTAL"}</strong>
+          <b>{audience === "hermes" ? "SUPRA" : displayOrganizationName}</b>
+          <strong>{audience === "hermes" ? "HERMES" : "Acquisition intelligence"}</strong>
         </Link>
         <div className="product-account">
-          <span>{organizationName}</span>
+          <span>{audience === "portal" ? "Powered by Supra Integration" : organizationName}</span>
           <b>{role.replaceAll("_", " ")}</b>
           <form action={signOutAction}>
             <button>Log out</button>
@@ -40,7 +44,7 @@ export function ProductShell({
 
       <div className="product-frame">
         <aside className="product-sidebar">
-          <p>{audience === "hermes" ? "Internal control" : "Client system"}</p>
+          <p>{audience === "hermes" ? "Internal control" : displayOrganizationName}</p>
           <nav aria-label={audience === "hermes" ? "Hermes navigation" : "Portal navigation"}>
             {navigation.map((item) => (
               <Link href={item.href} key={item.href}>{item.label}</Link>

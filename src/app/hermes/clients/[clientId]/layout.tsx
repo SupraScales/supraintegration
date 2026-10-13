@@ -7,6 +7,7 @@ const sections = [
   ["data", "Data"],
   ["portal", "Portal"],
   ["agent", "Agent"],
+  ["lead-intelligence", "Lead Intelligence"],
   ["integrations", "Integrations"],
   ["users", "Users"],
   ["audit", "Audit"],

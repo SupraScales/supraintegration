@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import { ProductShell } from "@/components/product-shell";
-import { getPortalContext, portalModuleCatalog } from "@/lib/portal";
+import { getPortalContext, portalModuleCatalog, portalModulePath } from "@/lib/portal";
+
+export const metadata: Metadata = {
+  title: "SkyShare Acquisition Intelligence | Supra Integration",
+  description: "SkyShare's client portal for reviewing source-backed acquisition opportunities.",
+};
 
 export default async function PortalLayout({
   children,
@@ -11,7 +17,7 @@ export default async function PortalLayout({
     ...portalModuleCatalog
       .filter((module) => enabledKeys.has(module.key))
       .map((module) => ({
-        href: `/portal/${module.key}`,
+        href: portalModulePath(module.key),
         label:
           modules.find((configured) => configured.module_key === module.key)
             ?.label ?? module.label,
