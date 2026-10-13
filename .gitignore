@@ -12,6 +12,9 @@
 
 # testing
 /coverage
+/supabase/.temp/
+__pycache__/
+*.py[cod]
 
 # next.js
 /.next/

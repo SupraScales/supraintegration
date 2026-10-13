@@ -43,6 +43,23 @@ test("Todd Blue / LAPIS deterministically becomes an unpublished-ready WHALE dra
   assert.match(draft.unknownFacts.join(" "), /Personal liquidity or acquisition proceeds/);
 });
 
+test("Scrapling-normalized official text reaches the same authoritative Hunt #3 parser", () => {
+  const normalized = LAPIS_DEALER_EXPANSION_FIXTURE.sources.map((source) => ({
+    ...source,
+    html: source.html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
+  }));
+  const parsed = parseDealerExpansion({
+    runDate: LAPIS_DEALER_EXPANSION_FIXTURE.runDate,
+    sources: normalized,
+  });
+  const draft = buildDealerExpansionCandidateDraft(parsed);
+
+  assert.deepEqual(parsed.qualification, { qualified: true });
+  assert.equal(draft.dedupeKey, "dealer-owner-expansion:todd-blue:lapis:2026-03-17");
+  assert.equal(draft.systemRecommendation, "whale");
+  assert.equal(draft.whaleScore, 92);
+});
+
 test("official URL validation accepts direct HTTPS and rejects shorteners, social sites, and lookalike schemes", () => {
   assert.equal(validateDealerExpansionUrl("https://www.lapis.com/team/"), "https://www.lapis.com/team/");
   assert.throws(() => validateDealerExpansionUrl("http://www.lapis.com/team/"), /direct HTTPS/);
