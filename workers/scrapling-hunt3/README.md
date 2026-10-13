@@ -54,4 +54,20 @@ bearer secret and remains disabled unless
 scheduler is included.
 
 The systemd unit is a hardened `Type=oneshot` service for an existing non-root
-`skyshare-worker` account. It deliberately has no companion timer.
+`skyshare-worker` account. After the bounded worker writes normalized inbox
+items, a standard-library helper invokes the existing authorized Hunt #3 route.
+The helper reads the bearer secret from the service environment and never puts
+it in command arguments or logs.
+
+`skyshare-scrapling-hunt3.timer` runs the same unit every Monday and Thursday at
+10:15 UTC with up to 30 minutes of randomized delay. Twice weekly is conservative
+for dealership acquisition/news frequency while still keeping the pilot current.
+systemd does not start a second instance of an already-active oneshot unit;
+`RuntimeMaxSec=20min` supplies the outer runtime bound, and `Persistent=true`
+performs one catch-up activation after a reboot instead of replaying every missed
+schedule.
+
+Install both unit files under `/etc/systemd/system`, populate the environment
+file from the secret store, then run `systemctl daemon-reload` and
+`systemctl enable --now skyshare-scrapling-hunt3.timer`. Do not enable the timer
+against Production as part of this pilot slice.

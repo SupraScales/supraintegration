@@ -27,6 +27,15 @@ ITEM INFORMATION: 5.02
 <DOCUMENT><TYPE>8-K</TYPE><TEXT><p>Item 5.02 Departure of Directors.</p></TEXT></DOCUMENT>
 </SEC-DOCUMENT>`;
 
+export const SEC_FORM4_DAILY_INDEX_FIXTURE = `Description: Master Index of EDGAR Dissemination Feed
+CIK|Company Name|Form Type|Date Filed|File Name
+--------------------------------------------------------------------------------
+789019|MICROSOFT CORP|4|20260901|edgar/data/789019/0000789019-26-000161.txt
+789019|MICROSOFT CORP|4/A|20260902|edgar/data/789019/0000789019-26-000162.txt
+789019|MICROSOFT CORP|4|20260901|edgar/data/789019/0000789019-26-000161.txt
+1766363|ENDEAVOR GROUP HOLDINGS INC|8-K|20260901|edgar/data/1766363/0001193125-26-060947.txt
+`;
+
 export const SEC_IPO_DAILY_INDEX_FIXTURE = `Description: Master Index of EDGAR Dissemination Feed
 Last Data Received: July 31, 2025
 Comments: webmaster@sec.gov

@@ -5,6 +5,7 @@ import { requireEnabledPortalModule } from "@/lib/portal";
 import { requireHermesClient } from "@/lib/hermes";
 import { createClient } from "@/lib/supabase/server";
 import { summarizeHuntRuns, type LeadGateEvent } from "@/lib/lead-intelligence-run-summary";
+import { createClientLeadReference } from "@/lib/lead-intelligence/client-presentation";
 
 export type LeadRecommendation = "whale" | "good" | "bad";
 export type HumanDecision = "approve" | "reject" | "override";
@@ -126,7 +127,7 @@ export async function getPortalLeadList() {
   };
 }
 
-export async function getPortalLeadDetail(leadId: string) {
+export async function getPortalLeadDetail(leadReference: string) {
   const { access } = await requireEnabledPortalModule("lead_intelligence");
   const supabase = await createClient();
   if (!supabase) notFound();
@@ -134,29 +135,29 @@ export async function getPortalLeadDetail(leadId: string) {
   const { data: candidateData } = await supabase
     .from("lead_candidates")
     .select(candidateSelect)
-    .eq("id", leadId)
-    .eq("organization_id", access.organization.id)
-    .maybeSingle();
-  if (!candidateData) notFound();
+    .eq("organization_id", access.organization.id);
+  const candidates = (candidateData ?? []) as LeadCandidate[];
+  const candidate = candidates.find((item) => createClientLeadReference(item) === leadReference);
+  if (!candidate) notFound();
 
   const [{ data: evidenceData }, { data: feedbackData }] = await Promise.all([
     supabase
       .from("lead_evidence")
       .select("id, candidate_id, label, source_url, evidence_type, summary, captured_at, client_visible")
-      .eq("candidate_id", leadId)
+      .eq("candidate_id", candidate.id)
       .eq("organization_id", access.organization.id)
       .order("created_at"),
     supabase
       .from("lead_feedback")
       .select(feedbackSelect)
-      .eq("candidate_id", leadId)
+      .eq("candidate_id", candidate.id)
       .eq("user_id", access.user.id)
       .maybeSingle(),
   ]);
 
   return {
     access,
-    candidate: candidateData as LeadCandidate,
+    candidate,
     evidence: (evidenceData ?? []) as LeadEvidence[],
     feedback: (feedbackData ?? null) as LeadFeedback | null,
   };
