@@ -22,11 +22,18 @@ connected until those services are actually configured.
   portal-configuration, and agent-configuration views.
 - Separate storage and policies for client-safe agent context versus private
   internal instructions and action controls.
+- A database-enforced restriction on who may author an agent message role, so a
+  client cannot post a turn that reads as if Hermes produced it.
+- An automated verification gate covering type checking, linting, and the
+  production build on every pull request. The signed-in authorization matrix is
+  wired into the same workflow but stays dormant until a staging Supabase project
+  and its credentials exist, so it has not yet verified anything in CI.
 
 ## Required production setup
 
 1. Create or select the Supra Integration Supabase project.
-2. Apply `supabase/migrations/202607280001_hermes_foundation.sql`.
+2. Apply, in order, `supabase/migrations/202607280001_hermes_foundation.sql` and
+   `supabase/migrations/202607280002_agent_message_role.sql`.
 3. In Vercel, add:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
@@ -70,6 +77,33 @@ phase should connect a server-only Hermes adapter that:
 - records conversations and meaningful actions;
 - enforces approval rules before any external write.
 
+### Message authorship
+
+`202607280002_agent_message_role.sql` adds a `before insert or update` trigger,
+`private.enforce_agent_message_role()`, on `public.agent_messages`:
+
+- A client user may only write `role = 'user'`, and only into a conversation they
+  already own. `assistant` and `system` are rejected with SQLSTATE `42501`, which
+  PostgREST returns as HTTP 403.
+- Client-supplied `sources`, `recommended_actions`, and `error_code` are reset to
+  their defaults rather than trusted, so a client cannot fabricate a citation or a
+  recommended action that internal views would later render.
+- Internal Supra members and trusted server-side callers may author any role, and
+  their agent-output fields are preserved.
+
+Authority comes from `auth.uid()` and `organization_memberships`, plus the verified
+request role. Nothing in the request body is trusted. The exception message names no
+user, organization, or conversation, because PostgREST forwards it verbatim.
+
+**This constrains how the agent endpoint must be built.** Assistant and system turns
+have to be written with a trusted server-side identity, not with the signed-in
+client's session — if the endpoint replied using the client's own session, the client
+could forge the identical write by hand. Route model replies through a server-only
+path that holds its own credentials.
+
+The trigger is re-runnable (`create or replace function`, `drop trigger if exists`),
+unlike `202607280001`, whose policy creation must be applied exactly once.
+
 ## Deliberately not included
 
 - Public self-registration.
@@ -79,9 +113,47 @@ phase should connect a server-only Hermes adapter that:
 - Live leads, campaign, call, attribution, or revenue adapters that do not yet
   exist in this repository.
 
+## Verification
+
+| Command | What it checks |
+|---|---|
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run lint` | ESLint flat config (`next lint` was removed in Next.js 16) |
+| `npm run build` | production build; needs no Supabase environment |
+| `npm test` | the signed-in authorization matrix |
+
+`.github/workflows/verify.yml` runs the first three on every pull request, forks
+included. The authorization matrix runs in a separate job, limited to same-repo
+pull requests, because it creates and deletes auth users in the target project.
+
+**That job does not run yet.** It is enabled by a repository variable
+(`STAGING_RLS_ENABLED`) and needs a staging project, three secrets, and a
+`staging-rls` environment configured with required reviewers. `supabase/tests/README.md`
+lists the four steps. Until they are done, no CI job verifies authorization.
+
+Two honest limitations, expanded on in `supabase/tests/README.md`:
+
+- **`npm test` exits 0 with everything skipped when Supabase credentials are absent.**
+  A green run in a bare checkout proves the harness imports, nothing more. Any
+  environment expected to have credentials must set `RLS_REQUIRE_CONFIG=true`, which
+  converts that skip into a hard failure. The protected CI job sets it.
+- **Fork pull requests never receive secrets**, so the matrix cannot run on them, and a
+  skipped job still satisfies branch protection. A green fork PR means "built and
+  linted", not "authorization verified". `pull_request_target` would work around this
+  by handing the service-role key to fork-authored code, so it is deliberately unused.
+
+## Phase 1 scope
+
+Phase 1 is the foundational truth, permissions, scope, knowledge, audit, approval, and
+internal-signal layer. It is deliberately **not** a live client-facing autonomous agent,
+autonomous external client communication, or autonomous production deployment. The
+internal Client Manager works for Supra: agent findings default to internal-only
+visibility and require explicit human approval before anything becomes client-visible.
+
 ## Recommended next phase
 
-Provision the Supabase project and the first two test organizations, then add
-automated authorization tests using an internal admin, internal member, client
-admin, and two users from separate client organizations. Only after those tests
-pass should the first real data adapter and Hermes agent endpoint be connected.
+Provision the Supabase project and the first two test organizations, apply both
+migrations, then run the authorization matrix against staging and add the
+`staging-rls` environment secrets so it runs in CI. Only after that passes with
+`RLS_REQUIRE_CONFIG=true` should the first real data adapter and Hermes agent
+endpoint be connected.

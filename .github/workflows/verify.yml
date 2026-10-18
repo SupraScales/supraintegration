@@ -1,0 +1,117 @@
+name: verify
+
+on:
+  pull_request:
+
+# Fork pull requests are read-only anyway; state the minimum explicitly.
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # --------------------------------------------------------------------------
+  # Tier 1 - mandatory. No secrets, so it runs on every pull request including
+  # forks. These are the gates AGENTS.md requires before opening a PR.
+  # --------------------------------------------------------------------------
+  verify:
+    name: typecheck / lint / build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Production build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+
+      # This does NOT prove the authorization matrix passes. Without staging
+      # credentials the suite registers a single skipped test and exits 0. It is
+      # here to catch an import-time or syntax error in the harness, which does
+      # exit non-zero. The real matrix runs in the `rls` job below.
+      - name: RLS harness smoke check (suite skips without staging config)
+        run: npm test
+
+  # --------------------------------------------------------------------------
+  # Tier 2 - the real authorization matrix. It signs in as seeded users, and it
+  # creates and deletes auth users in the target project, so it is deliberately
+  # constrained.
+  #
+  # The trigger is the repository VARIABLE `STAGING_RLS_ENABLED`, not a secret.
+  # Secrets cannot be referenced in a job-level `if:` (only github, needs, vars
+  # and inputs are available there), and probing them from an upstream gate job
+  # would hand the service-role key to a runner BEFORE any human approved it.
+  # Gating on a variable keeps every secret inside the protected job.
+  #
+  # RLS_REQUIRE_CONFIG=true turns the "no config" skip into a hard failure, so
+  # this job cannot report a false green if a secret is missing or expired.
+  # --------------------------------------------------------------------------
+  rls:
+    name: signed-in RLS matrix (staging)
+    needs: [verify]
+    if: >-
+      vars.STAGING_RLS_ENABLED == 'true' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+
+    # IMPORTANT: this environment provides NO protection until it is configured.
+    # GitHub auto-creates an environment referenced here with zero rules. Add
+    # required reviewers to `staging-rls` in repository settings, or this is just
+    # a label. See supabase/tests/README.md.
+    environment: staging-rls
+
+    # The suite resets and reseeds shared fixtures in one staging project, so two
+    # concurrent runs would delete each other's rows and make deny-assertions pass
+    # vacuously. This group is repo-wide (not per-PR) and must not cancel a run
+    # mid-teardown, or it would strand test users in the project.
+    concurrency:
+      group: staging-rls-project
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # The harness prints the target project URL before touching data, as a
+      # deliberate "am I pointed at the right project" confirmation, and it
+      # normalises the value first. GitHub masks only exact secret matches, so
+      # register the normalised form too rather than letting it through.
+      - name: Mask staging project URL in logs
+        env:
+          URL: ${{ secrets.STAGING_SUPABASE_URL }}
+        run: |
+          echo "::add-mask::$URL"
+          echo "::add-mask::${URL%/}"
+
+      # Secrets are passed through `env:` and never interpolated into the shell
+      # command, so they cannot leak through the process table or a printed
+      # command line. Nothing here echoes a value.
+      - name: Run authorization matrix
+        env:
+          SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+          RLS_TEST_ALLOW_DESTRUCTIVE: "true"
+          RLS_REQUIRE_CONFIG: "true"
+        run: npm test
