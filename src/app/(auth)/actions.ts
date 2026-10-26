@@ -4,6 +4,13 @@ import { z } from "zod";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getPostLoginPath } from "@/lib/auth";
+import {
+  RECOVERY_EXPIRED_MESSAGE,
+  recoveryRedirectUrl,
+  safeAuthErrorDetails,
+  SiteUrlConfigurationError,
+  updateRecoveredPassword,
+} from "@/lib/auth-recovery";
 
 export type AuthActionState = {
   status: "idle" | "error" | "success";
@@ -12,10 +19,6 @@ export type AuthActionState = {
 
 const emailSchema = z.string().trim().email();
 const passwordSchema = z.string().min(8).max(128);
-
-function siteUrl() {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-}
 
 export async function signInAction(
   _state: AuthActionState,
@@ -34,6 +37,7 @@ export async function signInAction(
 
   const supabase = await createClient();
   if (!supabase) {
+    console.error("[auth] sign-in failed", { code: "missing_supabase_config" });
     return {
       status: "error",
       message: "Client access is not connected yet. Contact Supra Integration.",
@@ -42,6 +46,7 @@ export async function signInAction(
 
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) {
+    console.warn("[auth] sign-in failed", safeAuthErrorDetails(error));
     return { status: "error", message: "Email or password was not recognized." };
   }
 
@@ -59,15 +64,44 @@ export async function requestPasswordResetAction(
 
   const supabase = await createClient();
   if (!supabase) {
+    console.error("[auth] recovery request failed", {
+      code: "missing_supabase_config",
+    });
     return {
       status: "error",
       message: "Password recovery is not connected yet. Contact Supra Integration.",
     };
   }
 
-  await supabase.auth.resetPasswordForEmail(parsed.data, {
-    redirectTo: `${siteUrl()}/auth/callback?next=/auth/update-password`,
+  let redirectTo: string;
+  try {
+    redirectTo = recoveryRedirectUrl();
+  } catch (error) {
+    const code =
+      error instanceof SiteUrlConfigurationError
+        ? error.diagnosticCode
+        : "invalid_site_url";
+    console.error("[auth] recovery request failed", { code });
+    return {
+      status: "error",
+      message: "Password recovery is temporarily unavailable. Try again later.",
+    };
+  }
+
+  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data, {
+    redirectTo,
   });
+
+  if (error) {
+    console.error(
+      "[auth] recovery request failed",
+      safeAuthErrorDetails(error),
+    );
+    return {
+      status: "error",
+      message: "Password recovery is temporarily unavailable. Try again later.",
+    };
+  }
 
   return {
     status: "success",
@@ -103,17 +137,28 @@ export async function updatePasswordAction(
 
   const supabase = await createClient();
   if (!supabase) {
+    console.error("[auth] password update failed", {
+      code: "missing_supabase_config",
+    });
     return { status: "error", message: "Account access is not connected yet." };
   }
 
-  const { error } = await supabase.auth.updateUser({
-    password: parsed.data.password,
+  const result = await updateRecoveredPassword(parsed.data.password, {
+    getUser: () => supabase.auth.getUser(),
+    updateUser: (attributes) => supabase.auth.updateUser(attributes),
   });
 
-  if (error) {
+  if (!result.ok) {
+    console.warn("[auth] password update failed", {
+      ...safeAuthErrorDetails(result.error),
+      code: result.reason,
+    });
     return {
       status: "error",
-      message: "The recovery link is invalid or expired. Request a new one.",
+      message:
+        result.reason === "expired_recovery_session"
+          ? RECOVERY_EXPIRED_MESSAGE
+          : "Password could not be updated. Request a new recovery link.",
     };
   }
 
